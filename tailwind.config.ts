@@ -61,7 +61,46 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				success: {
+					DEFAULT: 'hsl(var(--success))',
+					foreground: 'hsl(var(--success-foreground))'
+				},
+				warning: {
+					DEFAULT: 'hsl(var(--warning))',
+					foreground: 'hsl(var(--warning-foreground))'
+				},
+				info: {
+					DEFAULT: 'hsl(var(--info))',
+					foreground: 'hsl(var(--info-foreground))'
+				},
+				cluster: {
+					2: 'hsl(var(--cluster-2))',
+					3: 'hsl(var(--cluster-3))',
+					4: 'hsl(var(--cluster-4))',
+					5: 'hsl(var(--cluster-5))',
+					6: 'hsl(var(--cluster-6))'
 				}
+			},
+			backgroundImage: {
+				'gradient-primary': 'var(--gradient-primary)',
+				'gradient-secondary': 'var(--gradient-secondary)',
+				'gradient-accent': 'var(--gradient-accent)',
+				'gradient-success': 'var(--gradient-success)',
+				'gradient-warning': 'var(--gradient-warning)'
+			},
+			backdropBlur: {
+				'xs': '2px',
+			},
+			boxShadow: {
+				'glass': 'var(--shadow-md)',
+				'glow': 'var(--shadow-glow)',
+			},
+			animation: {
+				'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+				'fade-in': 'fadeIn 0.3s ease-in-out',
+				'slide-in': 'slideIn 0.3s ease-out',
+				'bounce-subtle': 'bounceSubtle 0.6s ease-in-out',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +123,46 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'fadeIn': {
+					from: {
+						opacity: '0',
+						transform: 'translateY(10px)'
+					},
+					to: {
+						opacity: '1',
+						transform: 'translateY(0)'
+					}
+				},
+				'slideIn': {
+					from: {
+						opacity: '0',
+						transform: 'translateX(-20px)'
+					},
+					to: {
+						opacity: '1',
+						transform: 'translateX(0)'
+					}
+				},
+				'bounceSubtle': {
+					'0%, 20%, 53%, 80%, 100%': {
+						transform: 'translateY(0)'
+					},
+					'40%, 43%': {
+						transform: 'translateY(-8px)'
+					},
+					'70%': {
+						transform: 'translateY(-4px)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+				'fade-in': 'fadeIn 0.3s ease-in-out',
+				'slide-in': 'slideIn 0.3s ease-out',
+				'bounce-subtle': 'bounceSubtle 0.6s ease-in-out',
 			}
 		}
 	},
