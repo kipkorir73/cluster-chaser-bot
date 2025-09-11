@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Wifi, WifiOff, RotateCcw, Settings2 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 interface ConnectionSettings {
   appId: string;
@@ -16,6 +17,13 @@ interface ConnectionSettings {
   selectedVolatility: string;
 }
 
+interface AutoTradeSettings {
+  enabled: boolean;
+  tradeAmount: number;
+  tradeDuration: number;
+  minClusterSize: number;
+}
+
 interface ConnectionControlsProps {
   settings: ConnectionSettings;
   onSettingsChange: (settings: Partial<ConnectionSettings>) => void;
@@ -23,6 +31,8 @@ interface ConnectionControlsProps {
   onConnect: () => void;
   onDisconnect: () => void;
   onResetStats: () => void;
+  autoTradeSettings: AutoTradeSettings;
+  onAutoTradeSettingsChange: (settings: Partial<AutoTradeSettings>) => void;
 }
 
 export function ConnectionControls({
@@ -31,7 +41,9 @@ export function ConnectionControls({
   isConnected,
   onConnect,
   onDisconnect,
-  onResetStats
+  onResetStats,
+  autoTradeSettings,
+  onAutoTradeSettingsChange
 }: ConnectionControlsProps) {
   return (
     <Card className="p-6 bg-card/50 backdrop-blur-sm border-border/50">
@@ -53,7 +65,9 @@ export function ConnectionControls({
         </Badge>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="space-y-6">
+        {/* Connection Settings */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         {/* App ID */}
         <div className="space-y-2">
           <Label htmlFor="appId" className="text-sm font-medium">
@@ -167,6 +181,100 @@ export function ConnectionControls({
             >
               <RotateCcw className="h-4 w-4" />
             </Button>
+          </div>
+        </div>
+        </div>
+
+        <Separator />
+
+        {/* Auto Trading Settings */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-md font-semibold">Automated Trading Settings</h3>
+            <Badge variant={autoTradeSettings.enabled ? "default" : "secondary"}>
+              {autoTradeSettings.enabled ? "Active" : "Inactive"}
+            </Badge>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Enable Auto Trade */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Auto Trading</Label>
+              <div className="flex items-center space-x-2 h-10">
+                <Switch
+                  checked={autoTradeSettings.enabled}
+                  onCheckedChange={(checked) => onAutoTradeSettingsChange({ enabled: checked })}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {autoTradeSettings.enabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+            </div>
+
+            {/* Trade Amount */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Trade Amount ($)</Label>
+              <Input
+                type="number"
+                min="0.35"
+                max="50000"
+                step="0.01"
+                value={autoTradeSettings.tradeAmount}
+                onChange={(e) => onAutoTradeSettingsChange({ tradeAmount: parseFloat(e.target.value) || 1 })}
+                className="bg-background/50"
+              />
+            </div>
+
+            {/* Trade Duration */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Duration (ticks)</Label>
+              <Select
+                value={autoTradeSettings.tradeDuration.toString()}
+                onValueChange={(value) => onAutoTradeSettingsChange({ tradeDuration: parseInt(value) })}
+              >
+                <SelectTrigger className="bg-background/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 Tick</SelectItem>
+                  <SelectItem value="2">2 Ticks</SelectItem>
+                  <SelectItem value="3">3 Ticks</SelectItem>
+                  <SelectItem value="4">4 Ticks</SelectItem>
+                  <SelectItem value="5">5 Ticks</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Minimum Cluster Size */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Min Cluster Size</Label>
+              <Select
+                value={autoTradeSettings.minClusterSize.toString()}
+                onValueChange={(value) => onAutoTradeSettingsChange({ minClusterSize: parseInt(value) })}
+              >
+                <SelectTrigger className="bg-background/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3">3 Clusters</SelectItem>
+                  <SelectItem value="4">4 Clusters</SelectItem>
+                  <SelectItem value="5">5 Clusters</SelectItem>
+                  <SelectItem value="6">6 Clusters</SelectItem>
+                  <SelectItem value="7">7 Clusters</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Strategy Description */}
+          <div className="p-4 bg-muted/30 rounded-lg border border-border/30">
+            <h4 className="text-sm font-medium mb-2">Strategy: Digit Differs After Cluster</h4>
+            <p className="text-xs text-muted-foreground">
+              When a digit reaches the minimum cluster size ({autoTradeSettings.minClusterSize} consecutive occurrences), 
+              the system waits for that same digit to appear again as a single occurrence. When detected, 
+              it automatically places "Digit Differs" trades on all volatility indices, betting that the next tick 
+              will be different from the target digit.
+            </p>
           </div>
         </div>
       </div>

@@ -5,6 +5,7 @@ import { VolatilityCard } from './VolatilityCard';
 import { StatisticsPanel } from './StatisticsPanel';
 import { AlertsLog } from './AlertsLog';
 import { Card } from '@/components/ui/card';
+import { AutoTradeManager } from './AutoTradeManager';
 import dashboardHero from '@/assets/dashboard-hero.jpg';
 
 interface VolatilityData {
@@ -74,8 +75,13 @@ export function VolatilityMonitor() {
     }
   ]);
   
-  const [pendingTrade, setPendingTrade] = useState<{ symbol: string; digit: number } | null>(null);
   const [reconnectDelay, setReconnectDelay] = useState(1000);
+  const [autoTradeSettings, setAutoTradeSettings] = useState({
+    enabled: true,
+    tradeAmount: 1,
+    tradeDuration: 1,
+    minClusterSize: 5
+  });
 
   // Initialize volatility data
   useEffect(() => {
@@ -136,6 +142,16 @@ export function VolatilityMonitor() {
     setAlerts(prev => [newAlert, ...prev.slice(0, 9)]);
   }, []);
 
+  // Auto trade manager
+  const autoTradeManager = AutoTradeManager({
+    isConnected,
+    token: connectionSettings.token,
+    socketRef,
+    onTradeExecuted: (trade) => {
+      addAlert(`Trade executed: ${trade.symbol} - ${trade.contract_type}`, 'success');
+    },
+    onAddAlert: addAlert
+  });
   const resetStatistics = useCallback(() => {
     setStatistics({ 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 });
     addAlert('Statistics reset', 'info');
@@ -287,20 +303,35 @@ export function VolatilityMonitor() {
       }
     }
 
-    // Check for single digit after threshold clusters
-    if (tracking.currentClusters === connectionSettings.alertThreshold && !tracking.waitingForSingle) {
+    // Check for automated trading opportunity
+    if (tracking.currentClusters >= autoTradeSettings.minClusterSize && autoTradeSettings.enabled && connectionSettings.token) {
       const lastIndex = digits.length - 1;
-      if (lastIndex > tracking.lastClusterEnd && digits[lastIndex] === digit) {
-        const isSingleDigit = (lastIndex === 0 || digits[lastIndex - 1] !== digit) && 
-                             (lastIndex === digits.length - 1 || digits[lastIndex + 1] !== digit);
-        if (isSingleDigit) {
+      
+      // Check if the target digit appears right after the cluster sequence
+      if (lastIndex > tracking.lastClusterEnd && digits[lastIndex] === digit && !tracking.waitingForSingle) {
+        // Check if this is a single occurrence (not part of a new cluster)
+        const nextIndex = lastIndex + 1;
+        const isIsolatedDigit = (lastIndex === 0 || digits[lastIndex - 1] !== digit) && 
+                               (nextIndex >= digits.length || digits[nextIndex] !== digit);
+        
+        if (isIsolatedDigit) {
           tracking.waitingForSingle = true;
-          setPendingTrade({ symbol, digit });
-          addAlert(`Waiting for single digit ${digit} on ${symbol.replace('_', ' ')} for auto-trade`, 'warning');
+          
+          // Execute automated digit differs trade for all volatilities
+          autoTradeManager.executeDigitDiffersTradeForAllVolatilities(
+            digit,
+            autoTradeSettings.tradeAmount,
+            autoTradeSettings.tradeDuration
+          );
+          
+          addAlert(
+            `Auto-trade triggered: Digit ${digit} appeared after ${tracking.currentClusters} clusters on ${symbol.replace('_', ' ')}. Trading Digit Differs on all volatilities.`,
+            'success'
+          );
         }
       }
     }
-  }, [connectionSettings.alertThreshold, addAlert]);
+  }, [connectionSettings.alertThreshold, autoTradeSettings, connectionSettings.token, addAlert, autoTradeManager]);
 
   const hasSoloDigitBetweenClusters = useCallback((digits: number[], clusterEnd: number, nextClusterStart: number, digit: number) => {
     for (let i = clusterEnd + 1; i < nextClusterStart; i++) {
@@ -377,13 +408,7 @@ export function VolatilityMonitor() {
     });
 
     if (connectionSettings.autoTrade && connectionSettings.token && isConnected && clusterCount === 5) {
-      setVolatilityData(prev => {
-        const updated = { ...prev };
-        updated[symbol].patternTracking[digit].waitingForSingle = true;
-        return updated;
-      });
-      setPendingTrade({ symbol, digit });
-      addAlert(`Auto-trade setup for ${symbol} digit ${digit}`, 'info');
+      addAlert(`Pattern alert triggered for ${symbol} digit ${digit} - Auto-trade system active`, 'info');
     }
   }, [addAlert, toast, connectionSettings, isConnected]);
 
@@ -446,6 +471,18 @@ export function VolatilityMonitor() {
         
         if (data.tick) {
           processTick(data.tick);
+        } else if (data.buy) {
+          // Handle buy response
+          if (data.error) {
+            addAlert(`Trade error: ${data.error.message}`, 'error');
+          } else {
+            addAlert(`Trade successful: Contract ID ${data.buy.contract_id}`, 'success');
+          }
+        } else if (data.proposal) {
+          // Handle proposal response
+          if (data.error) {
+            addAlert(`Proposal error: ${data.error.message}`, 'error');
+          }
         } else if (data.msg_type === 'authorize') {
           if (data.error) {
             addAlert(`Authorization error: ${data.error.message}`, 'error');
@@ -490,7 +527,6 @@ export function VolatilityMonitor() {
     }
     
     setIsConnected(false);
-    setPendingTrade(null);
     addAlert('Disconnected from WebSocket', 'info');
   }, [addAlert]);
 
@@ -537,6 +573,8 @@ export function VolatilityMonitor() {
           onConnect={connect}
           onDisconnect={disconnect}
           onResetStats={resetStatistics}
+          autoTradeSettings={autoTradeSettings}
+          onAutoTradeSettingsChange={setAutoTradeSettings}
         />
 
         {/* Main Content */}
