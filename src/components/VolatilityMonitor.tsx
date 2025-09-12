@@ -113,6 +113,10 @@ export function VolatilityMonitor() {
     minClusterSize: 5
   });
 
+  const [soundSettings, setSoundSettings] = useState({
+    enabled: true
+  });
+
   // Initialize volatility data
   useEffect(() => {
     const initialData: Record<string, VolatilityData> = {};
@@ -215,8 +219,13 @@ export function VolatilityMonitor() {
     const quoteStr = quote.toString();
     const lastDigit = parseInt(quoteStr.slice(-1));
     
-    if (isNaN(lastDigit)) {
-      console.warn(`Invalid digit for ${symbol}: quote=${quote}`);
+    // Debug logging to check if 0 digits are being processed
+    if (lastDigit === 0) {
+      console.log(`Processing digit 0 for ${symbol}: quote=${quote}, lastDigit=${lastDigit}`);
+    }
+    
+    if (isNaN(lastDigit) || lastDigit < 0 || lastDigit > 9) {
+      console.warn(`Invalid digit for ${symbol}: quote=${quote}, lastDigit=${lastDigit}`);
       return;
     }
 
@@ -377,7 +386,7 @@ export function VolatilityMonitor() {
         }
       }
     }
-  }, [connectionSettings.alertThreshold, autoTradeSettings, connectionSettings.token, addAlert, autoTradeManager]);
+  }, [connectionSettings.alertThreshold, autoTradeSettings, connectionSettings.token, addAlert, autoTradeManager, soundSettings]);
 
   const hasSoloDigitBetweenClusters = useCallback((digits: number[], clusterEnd: number, nextClusterStart: number, digit: number) => {
     for (let i = clusterEnd + 1; i < nextClusterStart; i++) {
@@ -434,8 +443,8 @@ export function VolatilityMonitor() {
   const triggerAlert = useCallback((symbol: string, digit: number, clusterCount: number) => {
     const message = `Digit ${digit} reached ${clusterCount} clusters on ${symbol.replace('_', ' ')}`;
     
-    // Speech synthesis
-    if ('speechSynthesis' in window) {
+    // Speech synthesis (only if sound is enabled)
+    if ('speechSynthesis' in window && soundSettings.enabled) {
       try {
         const utterance = new SpeechSynthesisUtterance(message);
         utterance.rate = 0.8;
@@ -621,6 +630,8 @@ export function VolatilityMonitor() {
           onResetStats={resetStatistics}
           autoTradeSettings={autoTradeSettings}
           onAutoTradeSettingsChange={(settings) => setAutoTradeSettings(prev => ({ ...prev, ...settings }))}
+          soundSettings={soundSettings}
+          onSoundSettingsChange={(settings) => setSoundSettings(prev => ({ ...prev, ...settings }))}
         />
 
         {/* Main Content */}

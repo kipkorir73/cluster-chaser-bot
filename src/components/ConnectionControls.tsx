@@ -24,6 +24,10 @@ interface AutoTradeSettings {
   minClusterSize: number;
 }
 
+interface SoundSettings {
+  enabled: boolean;
+}
+
 interface ConnectionControlsProps {
   settings: ConnectionSettings;
   onSettingsChange: (settings: Partial<ConnectionSettings>) => void;
@@ -33,6 +37,8 @@ interface ConnectionControlsProps {
   onResetStats: () => void;
   autoTradeSettings: AutoTradeSettings;
   onAutoTradeSettingsChange: (settings: Partial<AutoTradeSettings>) => void;
+  soundSettings: SoundSettings;
+  onSoundSettingsChange: (settings: Partial<SoundSettings>) => void;
 }
 
 export function ConnectionControls({
@@ -43,7 +49,9 @@ export function ConnectionControls({
   onDisconnect,
   onResetStats,
   autoTradeSettings,
-  onAutoTradeSettingsChange
+  onAutoTradeSettingsChange,
+  soundSettings,
+  onSoundSettingsChange
 }: ConnectionControlsProps) {
   return (
     <Card className="p-6 bg-card/50 backdrop-blur-sm border-border/50">
@@ -67,7 +75,7 @@ export function ConnectionControls({
 
       <div className="space-y-6">
         {/* Connection Settings */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
         {/* App ID */}
         <div className="space-y-2">
           <Label htmlFor="appId" className="text-sm font-medium">
@@ -171,6 +179,20 @@ export function ConnectionControls({
             />
             <span className="text-sm text-muted-foreground">
               {settings.autoTrade ? 'Enabled' : 'Disabled'}
+            </span>
+          </div>
+        </div>
+
+        {/* Sound Alerts */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Sound Alerts</Label>
+          <div className="flex items-center space-x-2 h-10">
+            <Switch
+              checked={soundSettings.enabled}
+              onCheckedChange={(checked) => onSoundSettingsChange({ enabled: checked })}
+            />
+            <span className="text-sm text-muted-foreground">
+              {soundSettings.enabled ? 'Enabled' : 'Muted'}
             </span>
           </div>
         </div>
