@@ -63,7 +63,6 @@ export function VolatilityMonitor() {
     selectedVolatility: 'R_25'
   });
   
-  const volatilities = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
   // All Deriv volatility indices that support Digit Differs contract
   const volatilities = [
     'R_10',    // Volatility 10 Index
@@ -621,7 +620,7 @@ export function VolatilityMonitor() {
           onDisconnect={disconnect}
           onResetStats={resetStatistics}
           autoTradeSettings={autoTradeSettings}
-          onAutoTradeSettingsChange={setAutoTradeSettings}
+          onAutoTradeSettingsChange={(settings) => setAutoTradeSettings(prev => ({ ...prev, ...settings }))}
         />
 
         {/* Main Content */}

@@ -37,7 +37,6 @@ export function AutoTradeManager({
       return;
     }
 
-    const volatilities = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
     // All Deriv volatility indices that support Digit Differs contract
     const volatilities = [
       'R_10', 'R_25', 'R_50', 'R_75', 'R_100',
