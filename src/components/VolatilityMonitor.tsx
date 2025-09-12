@@ -64,7 +64,7 @@ export function VolatilityMonitor() {
   });
   
   // All Deriv volatility indices that support Digit Differs contract
-  const volatilities = [
+  const volatilityIndices = [
     'R_10',    // Volatility 10 Index
     'R_25',    // Volatility 25 Index  
     'R_50',    // Volatility 50 Index
@@ -116,7 +116,7 @@ export function VolatilityMonitor() {
   // Initialize volatility data
   useEffect(() => {
     const initialData: Record<string, VolatilityData> = {};
-    volatilities.forEach(vol => {
+    volatilityIndices.forEach(vol => {
       const patternTracking: Record<number, PatternTracking> = {};
       for (let digit = 0; digit <= 9; digit++) {
         patternTracking[digit] = {
@@ -492,7 +492,7 @@ export function VolatilityMonitor() {
       addAlert('Connected to Deriv WebSocket', 'success');
       
       // Subscribe to all volatilities
-      volatilities.forEach((vol, index) => {
+      volatilityIndices.forEach((vol, index) => {
         setTimeout(() => {
           if (socketRef.current?.readyState === WebSocket.OPEN) {
             const subscribeMessage = {
@@ -627,7 +627,7 @@ export function VolatilityMonitor() {
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
           {/* Volatility Cards */}
           <div className="xl:col-span-3 space-y-4">
-            {volatilities.map(vol => (
+            {volatilityIndices.map(vol => (
               <VolatilityCard
                 key={vol}
                 symbol={vol}
