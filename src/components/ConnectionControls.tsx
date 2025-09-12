@@ -122,7 +122,7 @@ export function ConnectionControls({
         <div className="space-y-2">
           <Label className="text-sm font-medium">Alert Threshold</Label>
           <Select
-            value={settings.alertThreshold.toString()}
+            value={String(settings.alertThreshold)}
             onValueChange={(value) => onSettingsChange({ alertThreshold: parseInt(value) })}
           >
             <SelectTrigger className="bg-background/50">
@@ -229,7 +229,7 @@ export function ConnectionControls({
             <div className="space-y-2">
               <Label className="text-sm font-medium">Duration (ticks)</Label>
               <Select
-                value={autoTradeSettings.tradeDuration.toString()}
+                value={String(autoTradeSettings.tradeDuration)}
                 onValueChange={(value) => onAutoTradeSettingsChange({ tradeDuration: parseInt(value) })}
               >
                 <SelectTrigger className="bg-background/50">
@@ -249,7 +249,7 @@ export function ConnectionControls({
             <div className="space-y-2">
               <Label className="text-sm font-medium">Min Cluster Size</Label>
               <Select
-                value={autoTradeSettings.minClusterSize.toString()}
+                value={String(autoTradeSettings.minClusterSize)}
                 onValueChange={(value) => onAutoTradeSettingsChange({ minClusterSize: parseInt(value) })}
               >
                 <SelectTrigger className="bg-background/50">
