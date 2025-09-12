@@ -114,10 +114,26 @@ export function VolatilityMonitor() {
       const savedSettings = localStorage.getItem('volatilityMonitorSettings');
       if (savedSettings) {
         const parsed = JSON.parse(savedSettings);
-        setConnectionSettings(prev => ({ ...prev, ...parsed }));
+        // Ensure all properties have valid values with proper type checking
+        const validatedSettings = {
+          appId: typeof parsed.appId === 'string' ? parsed.appId : '1089',
+          token: typeof parsed.token === 'string' ? parsed.token : '',
+          alertThreshold: typeof parsed.alertThreshold === 'number' && !isNaN(parsed.alertThreshold) ? parsed.alertThreshold : 5,
+          autoTrade: typeof parsed.autoTrade === 'boolean' ? parsed.autoTrade : false,
+          selectedVolatility: typeof parsed.selectedVolatility === 'string' ? parsed.selectedVolatility : 'R_25'
+        };
+        setConnectionSettings(prev => ({ ...prev, ...validatedSettings }));
       }
     } catch (error) {
       console.error('Error loading settings:', error);
+      // Reset to default settings if parsing fails
+      setConnectionSettings({
+        appId: '1089',
+        token: '',
+        alertThreshold: 5,
+        autoTrade: false,
+        selectedVolatility: 'R_25'
+      });
     }
   }, []);
 
