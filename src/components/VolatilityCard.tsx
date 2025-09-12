@@ -32,7 +32,42 @@ interface VolatilityCardProps {
 }
 
 export function VolatilityCard({ symbol, data, isSelected }: VolatilityCardProps) {
-  const displayName = symbol.replace('_', ' ');
+  // Enhanced display names for all volatility indices
+  const getDisplayName = (symbol: string) => {
+    const nameMap: Record<string, string> = {
+      'R_10': 'Volatility 10',
+      'R_25': 'Volatility 25',
+      'R_50': 'Volatility 50', 
+      'R_75': 'Volatility 75',
+      'R_100': 'Volatility 100',
+      'RDBEAR': 'Bear Market',
+      'RDBULL': 'Bull Market',
+      '1HZ10V': 'Volatility 10 (1s)',
+      '1HZ25V': 'Volatility 25 (1s)',
+      '1HZ50V': 'Volatility 50 (1s)',
+      '1HZ75V': 'Volatility 75 (1s)',
+      '1HZ100V': 'Volatility 100 (1s)',
+      '1HZ150V': 'Volatility 150 (1s)',
+      '1HZ200V': 'Volatility 200 (1s)',
+      '1HZ250V': 'Volatility 250 (1s)',
+      '1HZ300V': 'Volatility 300 (1s)',
+      'BOOM300N': 'Boom 300',
+      'BOOM500N': 'Boom 500',
+      'BOOM1000N': 'Boom 1000',
+      'CRASH300N': 'Crash 300',
+      'CRASH500N': 'Crash 500',
+      'CRASH1000N': 'Crash 1000',
+      'JD10': 'Jump 10',
+      'JD25': 'Jump 25',
+      'JD75': 'Jump 75',
+      'JD100': 'Jump 100',
+      'JD150': 'Jump 150',
+      'JD200': 'Jump 200'
+    };
+    return nameMap[symbol] || symbol.replace('_', ' ');
+  };
+  
+  const displayName = getDisplayName(symbol);
   const lastTick = data?.lastTick;
   
   // Calculate trend based on recent digits

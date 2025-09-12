@@ -114,6 +114,29 @@ export function ConnectionControls({
               <SelectItem value="R_50">Volatility 50</SelectItem>
               <SelectItem value="R_75">Volatility 75</SelectItem>
               <SelectItem value="R_100">Volatility 100</SelectItem>
+              <SelectItem value="RDBEAR">Bear Market</SelectItem>
+              <SelectItem value="RDBULL">Bull Market</SelectItem>
+              <SelectItem value="1HZ10V">Volatility 10 (1s)</SelectItem>
+              <SelectItem value="1HZ25V">Volatility 25 (1s)</SelectItem>
+              <SelectItem value="1HZ50V">Volatility 50 (1s)</SelectItem>
+              <SelectItem value="1HZ75V">Volatility 75 (1s)</SelectItem>
+              <SelectItem value="1HZ100V">Volatility 100 (1s)</SelectItem>
+              <SelectItem value="1HZ150V">Volatility 150 (1s)</SelectItem>
+              <SelectItem value="1HZ200V">Volatility 200 (1s)</SelectItem>
+              <SelectItem value="1HZ250V">Volatility 250 (1s)</SelectItem>
+              <SelectItem value="1HZ300V">Volatility 300 (1s)</SelectItem>
+              <SelectItem value="BOOM300N">Boom 300</SelectItem>
+              <SelectItem value="BOOM500N">Boom 500</SelectItem>
+              <SelectItem value="BOOM1000N">Boom 1000</SelectItem>
+              <SelectItem value="CRASH300N">Crash 300</SelectItem>
+              <SelectItem value="CRASH500N">Crash 500</SelectItem>
+              <SelectItem value="CRASH1000N">Crash 1000</SelectItem>
+              <SelectItem value="JD10">Jump 10</SelectItem>
+              <SelectItem value="JD25">Jump 25</SelectItem>
+              <SelectItem value="JD75">Jump 75</SelectItem>
+              <SelectItem value="JD100">Jump 100</SelectItem>
+              <SelectItem value="JD150">Jump 150</SelectItem>
+              <SelectItem value="JD200">Jump 200</SelectItem>
             </SelectContent>
           </Select>
         </div>

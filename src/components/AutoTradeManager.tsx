@@ -38,6 +38,16 @@ export function AutoTradeManager({
     }
 
     const volatilities = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+    // All Deriv volatility indices that support Digit Differs contract
+    const volatilities = [
+      'R_10', 'R_25', 'R_50', 'R_75', 'R_100',
+      'RDBEAR', 'RDBULL',
+      '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', 
+      '1HZ150V', '1HZ200V', '1HZ250V', '1HZ300V',
+      'BOOM300N', 'BOOM500N', 'BOOM1000N',
+      'CRASH300N', 'CRASH500N', 'CRASH1000N',
+      'JD10', 'JD25', 'JD75', 'JD100', 'JD150', 'JD200'
+    ];
     
     for (const symbol of volatilities) {
       try {

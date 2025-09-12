@@ -64,6 +64,37 @@ export function VolatilityMonitor() {
   });
   
   const volatilities = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+  // All Deriv volatility indices that support Digit Differs contract
+  const volatilities = [
+    'R_10',    // Volatility 10 Index
+    'R_25',    // Volatility 25 Index  
+    'R_50',    // Volatility 50 Index
+    'R_75',    // Volatility 75 Index
+    'R_100',   // Volatility 100 Index
+    'RDBEAR',  // Bear Market Index
+    'RDBULL',  // Bull Market Index
+    '1HZ10V',  // Volatility 10 (1s) Index
+    '1HZ25V',  // Volatility 25 (1s) Index
+    '1HZ50V',  // Volatility 50 (1s) Index
+    '1HZ75V',  // Volatility 75 (1s) Index
+    '1HZ100V', // Volatility 100 (1s) Index
+    '1HZ150V', // Volatility 150 (1s) Index
+    '1HZ200V', // Volatility 200 (1s) Index
+    '1HZ250V', // Volatility 250 (1s) Index
+    '1HZ300V', // Volatility 300 (1s) Index
+    'BOOM300N', // Boom 300 Index
+    'BOOM500N', // Boom 500 Index  
+    'BOOM1000N', // Boom 1000 Index
+    'CRASH300N', // Crash 300 Index
+    'CRASH500N', // Crash 500 Index
+    'CRASH1000N', // Crash 1000 Index
+    'JD10',    // Jump 10 Index
+    'JD25',    // Jump 25 Index
+    'JD75',    // Jump 75 Index
+    'JD100',   // Jump 100 Index
+    'JD150',   // Jump 150 Index
+    'JD200'    // Jump 200 Index
+  ];
   const [volatilityData, setVolatilityData] = useState<Record<string, VolatilityData>>({});
   const [statistics, setStatistics] = useState<Record<number, number>>({ 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 });
   const [alerts, setAlerts] = useState<AlertItem[]>([
