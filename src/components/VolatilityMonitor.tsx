@@ -91,6 +91,10 @@ export function VolatilityMonitor() {
     enabled: true
   });
 
+  const [paperSettings, setPaperSettings] = useState({
+    enabled: true
+  });
+
   const [apiToken, setApiToken] = useState<string>('');
 
   useEffect(() => {
@@ -167,7 +171,8 @@ export function VolatilityMonitor() {
       addAlert(`Trade executed: ${trade.symbol} - ${trade.contract_type}`, 'success');
     },
     onAddAlert: addAlert,
-    volatilityIndices: volatilityIndices
+    volatilityIndices: volatilityIndices,
+    paperTrading: paperSettings.enabled
   });
 
   const resetStatistics = useCallback(() => {
@@ -177,8 +182,57 @@ export function VolatilityMonitor() {
   }, [addAlert, toast]);
 
   const analyzePatterns = useCallback((symbolData: VolatilityData, symbol: string) => {
-    for (let digit = 0; digit <= 9; digit++) {
-      // This is a placeholder for the full analysis logic
+    const digits = symbolData.digits;
+    if (!digits || digits.length === 0) return;
+
+    const minCluster = autoTradeSettings.minClusterSize;
+
+    for (let target = 0; target <= 9; target++) {
+      const tracking = symbolData.patternTracking[target] || {
+        currentClusters: 0,
+        isActive: false,
+        lastClusterEnd: -1,
+        expectedNextCluster: false,
+        waitingForSingle: false
+      };
+
+      // Count clusters of the target digit and the end index of the last cluster
+      let clusters = 0;
+      let lastClusterEnd = -1;
+      for (let i = 0; i < digits.length; i++) {
+        if (digits[i] === target && (i === 0 || digits[i - 1] !== target)) {
+          let j = i;
+          while (j + 1 < digits.length && digits[j + 1] === target) j++;
+          clusters++;
+          lastClusterEnd = j;
+          i = j;
+        }
+      }
+
+      tracking.currentClusters = clusters;
+      tracking.lastClusterEnd = lastClusterEnd;
+      tracking.isActive = clusters >= 1;
+
+      // If we reached threshold, look for a single isolated target after last cluster end
+      if (clusters >= minCluster) {
+        const lastIndex = digits.length - 1;
+        if (lastIndex > lastClusterEnd && digits[lastIndex] === target && !tracking.waitingForSingle) {
+          const isIsolated = (lastIndex === 0 || digits[lastIndex - 1] !== target) &&
+                            (lastIndex === digits.length - 1 || digits[lastIndex + 1] !== target);
+          if (isIsolated && autoTradeSettings.enabled) {
+            addAlert(`Signal: ${symbol} digit ${target} differs after cluster x${clusters}. Placing trades...`, 'warning');
+            autoTradeManager.executeDigitDiffersTradeForAllVolatilities(target, autoTradeSettings.tradeAmount, autoTradeSettings.tradeDuration);
+            tracking.waitingForSingle = true;
+          }
+        }
+      }
+
+      // Reset waiting flag once the digit changes again
+      if (digits[digits.length - 1] !== target) {
+        tracking.waitingForSingle = false;
+      }
+
+      symbolData.patternTracking[target] = tracking;
     }
   }, []);
 
@@ -369,6 +423,8 @@ export function VolatilityMonitor() {
           onAutoTradeSettingsChange={(partial) => setAutoTradeSettings(prev => ({ ...prev, ...partial }))}
           soundSettings={soundSettings}
           onSoundSettingsChange={(partial) => setSoundSettings(prev => ({ ...prev, ...partial }))}
+          paperSettings={paperSettings}
+          onPaperSettingsChange={(partial) => setPaperSettings(prev => ({ ...prev, ...partial }))}
         />
 
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">

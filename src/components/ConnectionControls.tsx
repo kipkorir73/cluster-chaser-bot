@@ -27,6 +27,10 @@ interface SoundSettings {
   enabled: boolean;
 }
 
+interface PaperSettings {
+  enabled: boolean;
+}
+
 interface ConnectionControlsProps {
   settings: ConnectionSettings;
   onSettingsChange: (settings: Partial<ConnectionSettings>) => void;
@@ -38,6 +42,8 @@ interface ConnectionControlsProps {
   onAutoTradeSettingsChange: (settings: Partial<AutoTradeSettings>) => void;
   soundSettings: SoundSettings;
   onSoundSettingsChange: (settings: Partial<SoundSettings>) => void;
+  paperSettings: PaperSettings;
+  onPaperSettingsChange: (settings: Partial<PaperSettings>) => void;
 }
 
 export function ConnectionControls({
@@ -50,7 +56,9 @@ export function ConnectionControls({
   autoTradeSettings,
   onAutoTradeSettingsChange,
   soundSettings,
-  onSoundSettingsChange
+  onSoundSettingsChange,
+  paperSettings,
+  onPaperSettingsChange
 }: ConnectionControlsProps) {
   return (
     <Card className="p-6 bg-card/50 backdrop-blur-sm border-border/50">
@@ -177,6 +185,20 @@ export function ConnectionControls({
             />
             <span className="text-sm text-muted-foreground">
               {soundSettings.enabled ? 'Enabled' : 'Muted'}
+            </span>
+          </div>
+        </div>
+
+        {/* Paper Trading */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Paper Trading</Label>
+          <div className="flex items-center space-x-2 h-10">
+            <Switch
+              checked={paperSettings.enabled}
+              onCheckedChange={(checked) => onPaperSettingsChange({ enabled: checked })}
+            />
+            <span className="text-sm text-muted-foreground">
+              {paperSettings.enabled ? 'Enabled' : 'Disabled'}
             </span>
           </div>
         </div>
