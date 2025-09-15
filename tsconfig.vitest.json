@@ -1,21 +1,3 @@
 {
-  "compilerOptions": {
-    "composite": true,
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    },
-    "types": ["vite/client"],
-    "typeRoots": ["./node_modules/@types", "./node_modules"],
-    "skipLibCheck": true
-  },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx"
-  ]
+  "extends": "./tsconfig.app.json"
 }
