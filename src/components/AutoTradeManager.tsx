@@ -123,7 +123,7 @@ export function AutoTradeManager({
                 timestamp: Date.now()
               };
               try {
-                await fetch('/api/trades', {
+                void fetch('/api/trades', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(realTrade)
