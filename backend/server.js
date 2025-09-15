@@ -34,6 +34,17 @@ CREATE TABLE IF NOT EXISTS trades (
 );
 `);
 
+// Settings storage (single-source app settings)
+db.exec(`
+CREATE TABLE IF NOT EXISTS settings (
+	key TEXT PRIMARY KEY,
+	value TEXT NOT NULL
+);
+`);
+
+const getSettingStmt = db.prepare('SELECT value FROM settings WHERE key = ?');
+const upsertSettingStmt = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+
 const insertTradeStmt = db.prepare(`
 INSERT INTO trades (symbol, contract_type, amount, duration, target_digit, paper, timestamp)
 VALUES (@symbol, @contract_type, @amount, @duration, @target_digit, @paper, @timestamp)
@@ -55,6 +66,36 @@ app.get('/api/token', (_req, res) => {
 		return res.status(500).json({ error: 'DERIV_API_TOKEN is not set in .env at project root' });
 	}
 	res.json({ token });
+});
+
+// App settings endpoints
+const defaultSettings = {
+	connectionSettings: { appId: '1089', alertThreshold: 5, autoTrade: false, selectedVolatility: 'R_25' },
+	autoTradeSettings: { enabled: true, tradeAmount: 1, tradeDuration: 1, minClusterSize: 5 },
+	soundSettings: { enabled: true },
+	paperSettings: { enabled: true }
+};
+
+app.get('/api/settings', (_req, res) => {
+	try {
+		const row = getSettingStmt.get('app');
+		if (!row) return res.json(defaultSettings);
+		const parsed = JSON.parse(row.value);
+		res.json({ ...defaultSettings, ...parsed });
+	} catch (e) {
+		res.json(defaultSettings);
+	}
+});
+
+app.put('/api/settings', (req, res) => {
+	try {
+		const incoming = req.body || {};
+		const merged = { ...defaultSettings, ...incoming };
+		upsertSettingStmt.run('app', JSON.stringify(merged));
+		res.json({ ok: true });
+	} catch (e) {
+		res.status(500).json({ error: 'Failed to save settings' });
+	}
 });
 
 // Store trades

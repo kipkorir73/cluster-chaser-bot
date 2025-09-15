@@ -126,32 +126,50 @@ export function VolatilityMonitor() {
   }, [volatilityIndices]);
 
   useEffect(() => {
-    try {
-      const savedSettings = localStorage.getItem('volatilityMonitorSettings');
-      if (savedSettings) {
-        const parsed = JSON.parse(savedSettings);
-        const validatedSettings = {
-          appId: typeof parsed.appId === 'string' ? parsed.appId : '1089',
-          alertThreshold: typeof parsed.alertThreshold === 'number' && !isNaN(parsed.alertThreshold) ? parsed.alertThreshold : 5,
-          autoTrade: typeof parsed.autoTrade === 'boolean' ? parsed.autoTrade : false,
-          selectedVolatility: typeof parsed.selectedVolatility === 'string' ? parsed.selectedVolatility : 'R_25'
-        };
-        setConnectionSettings(prev => ({ ...prev, ...validatedSettings }));
+    (async () => {
+      try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+          const s = await res.json();
+          if (s?.connectionSettings) setConnectionSettings(prev => ({ ...prev, ...s.connectionSettings }));
+          if (s?.autoTradeSettings) setAutoTradeSettings(prev => ({ ...prev, ...s.autoTradeSettings }));
+          if (s?.soundSettings) setSoundSettings(prev => ({ ...prev, ...s.soundSettings }));
+          if (s?.paperSettings) setPaperSettings(prev => ({ ...prev, ...s.paperSettings }));
+        }
+      } catch (e) {
+        console.error('Failed to fetch settings:', e);
       }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-    }
+    })();
   }, []);
 
   const saveSettings = useCallback((newSettings: Partial<ConnectionSettings>) => {
     const updated = { ...connectionSettings, ...newSettings };
     setConnectionSettings(updated);
-    try {
-      localStorage.setItem('volatilityMonitorSettings', JSON.stringify(updated));
-    } catch (error) {
-      console.error('Error saving settings:', error);
-    }
   }, [connectionSettings]);
+
+  const persistTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (persistTimeoutRef.current) clearTimeout(persistTimeoutRef.current);
+    persistTimeoutRef.current = setTimeout(async () => {
+      try {
+        const payload = {
+          connectionSettings,
+          autoTradeSettings,
+          soundSettings,
+          paperSettings
+        };
+        await fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        console.error('Failed to persist settings:', e);
+      }
+    }, 500);
+    return () => { if (persistTimeoutRef.current) clearTimeout(persistTimeoutRef.current); };
+  }, [connectionSettings, autoTradeSettings, soundSettings, paperSettings]);
 
   const addAlert = useCallback((message: string, type: AlertItem['type'] = 'info') => {
     const newAlert: AlertItem = {
