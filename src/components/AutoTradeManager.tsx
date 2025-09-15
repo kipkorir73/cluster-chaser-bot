@@ -58,6 +58,14 @@ export function AutoTradeManager({
             timestamp: Date.now()
           };
           onTradeExecuted(simulated);
+          // Log to backend
+          try {
+            await fetch('/api/trades', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(simulated)
+            });
+          } catch {}
           onAddAlert(
             `Paper trade: Digit Differs on ${symbol.replace('_', ' ')} - Target digit: ${targetDigit}`,
             'success'
@@ -104,6 +112,23 @@ export function AutoTradeManager({
                 title: "Auto Trade Executed",
                 description: `Digit Differs trade placed on ${symbol.replace('_', ' ')} for digit ${targetDigit}`,
               });
+              // Log to backend
+              const realTrade: TradeInfo = {
+                symbol,
+                contract_type: 'DIGITDIFF',
+                amount,
+                duration,
+                target_digit: targetDigit,
+                paper: false,
+                timestamp: Date.now()
+              };
+              try {
+                await fetch('/api/trades', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(realTrade)
+                });
+              } catch {}
             }
           }, 500);
         }

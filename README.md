@@ -72,31 +72,31 @@ To connect a domain, navigate to Project > Settings > Domains and click Connect 
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
 
-## Configure Deriv API token (live data)
+## Single-source Deriv API token + trade database
 
-To receive live data and authorize with Deriv, set your API token using either method below.
-
-1) Local development (.env)
-
-Create a file named `.env` in the project root with:
+- Set your token once in project root `.env`:
 
 ```
-VITE_DERIV_API_TOKEN=your_deriv_api_token_here
+DERIV_API_TOKEN=your_deriv_api_token_here
 ```
 
-Then run the dev server:
+- Start backend API (Express + SQLite):
 
 ```
-npm run dev
+cd backend && npm install && npm run start
 ```
 
-2) Netlify function environment variable (production)
+- Start frontend (Vite):
 
-If deploying on Netlify, add an environment variable in your site settings:
+```
+cd .. && npm run dev
+```
 
-- Key: `VITE_DERIV_API_TOKEN`
-- Value: your Deriv API token
+During development, the frontend proxies `/api/*` to the backend on `http://localhost:3001`.
 
-The frontend will first try `/.netlify/functions/get-token`, which returns this token. If the function is unavailable, it falls back to `import.meta.env.VITE_DERIV_API_TOKEN`.
+Endpoints:
+- `GET /api/token` — returns `{ token }` from `DERIV_API_TOKEN`
+- `POST /api/trades` — body: `{ symbol, contract_type, amount, duration, target_digit, paper, timestamp }`
+- `GET /api/trades?limit=100` — latest stored trades
 
-Security note: Never hardcode tokens in code or commit `.env` files.
+Security note: Never commit `.env`.

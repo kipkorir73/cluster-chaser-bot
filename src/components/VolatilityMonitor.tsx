@@ -269,28 +269,22 @@ export function VolatilityMonitor() {
       let tokenSource: 'function' | 'env' | 'unknown' = 'unknown';
 
       try {
-        const response = await fetch('/.netlify/functions/get-token');
+        const response = await fetch('/api/token');
         if (response.ok) {
           const body = await response.json();
           if (body && typeof body.token === 'string' && body.token.length > 0) {
             resolvedToken = body.token;
-            tokenSource = 'function';
+            tokenSource = 'env';
           }
+        } else {
+          throw new Error(`Token endpoint failed: ${response.status}`);
         }
       } catch (e) {
-        // Ignore; we'll try env fallback next
+        addAlert('Token fetch failed. Ensure DERIV_API_TOKEN is set on backend.', 'error');
       }
 
       if (!resolvedToken) {
-        const envToken = import.meta.env?.VITE_DERIV_API_TOKEN as string | undefined;
-        if (envToken && envToken.length > 0) {
-          resolvedToken = envToken;
-          tokenSource = 'env';
-        }
-      }
-
-      if (!resolvedToken) {
-        throw new Error('API token not found. Set VITE_DERIV_API_TOKEN or configure Netlify function.');
+        throw new Error('API token not found. Set DERIV_API_TOKEN in backend .env.');
       }
 
       setApiToken(resolvedToken);
