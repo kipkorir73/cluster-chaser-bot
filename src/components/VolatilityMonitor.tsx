@@ -266,12 +266,15 @@ export function VolatilityMonitor() {
       addAlert('Resolving API token...', 'info');
       let resolvedToken: string | undefined;
 
+      let tokenSource: 'function' | 'env' | 'unknown' = 'unknown';
+
       try {
         const response = await fetch('/.netlify/functions/get-token');
         if (response.ok) {
           const body = await response.json();
           if (body && typeof body.token === 'string' && body.token.length > 0) {
             resolvedToken = body.token;
+            tokenSource = 'function';
           }
         }
       } catch (e) {
@@ -282,6 +285,7 @@ export function VolatilityMonitor() {
         const envToken = import.meta.env?.VITE_DERIV_API_TOKEN as string | undefined;
         if (envToken && envToken.length > 0) {
           resolvedToken = envToken;
+          tokenSource = 'env';
         }
       }
 
@@ -290,6 +294,10 @@ export function VolatilityMonitor() {
       }
 
       setApiToken(resolvedToken);
+      const masked = resolvedToken.length > 8 
+        ? `${'*'.repeat(resolvedToken.length - 4)}${resolvedToken.slice(-4)}` 
+        : '****';
+      addAlert(`Token resolved from ${tokenSource}. Using: ${masked}`, 'info');
 
       addAlert('Connecting to Deriv WebSocket...', 'info');
       const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${connectionSettings.appId}`;
