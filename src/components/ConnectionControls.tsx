@@ -11,7 +11,6 @@ import { Separator } from '@/components/ui/separator';
 
 interface ConnectionSettings {
   appId: string;
-  token: string;
   alertThreshold: number;
   autoTrade: boolean;
   selectedVolatility: string;
@@ -87,21 +86,6 @@ export function ConnectionControls({
             placeholder="Enter your Deriv app_id"
             value={settings.appId}
             onChange={(e) => onSettingsChange({ appId: e.target.value })}
-            className="bg-background/50"
-          />
-        </div>
-
-        {/* API Token */}
-        <div className="space-y-2">
-          <Label htmlFor="token" className="text-sm font-medium">
-            API Token
-          </Label>
-          <Input
-            id="token"
-            type="password"
-            placeholder="Enter your Deriv API token"
-            value={settings.token}
-            onChange={(e) => onSettingsChange({ token: e.target.value })}
             className="bg-background/50"
           />
         </div>

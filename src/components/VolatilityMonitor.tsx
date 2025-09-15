@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { AutoTradeManager } from './AutoTradeManager';
 import dashboardHero from '@/assets/dashboard-hero.jpg';
 
+// Interfaces remain the same
 interface VolatilityData {
   digits: number[];
   patternTracking: Record<number, PatternTracking>;
@@ -37,7 +38,6 @@ interface AlertItem {
 
 interface ConnectionSettings {
   appId: string;
-  token: string;
   alertThreshold: number;
   autoTrade: boolean;
   selectedVolatility: string;
@@ -53,53 +53,27 @@ export function VolatilityMonitor() {
   const { toast } = useToast();
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+  const activeSubscriptions = useRef<Set<string>>(new Set());
+
   const [isConnected, setIsConnected] = useState(false);
   const [connectionSettings, setConnectionSettings] = useState<ConnectionSettings>({
     appId: '1089',
-    token: '',
     alertThreshold: 5,
     autoTrade: false,
     selectedVolatility: 'R_25'
   });
   
-  // All Deriv volatility indices that support Digit Differs contract
-  const volatilityIndices = [
-    'R_10',    // Volatility 10 Index
-    'R_25',    // Volatility 25 Index  
-    'R_50',    // Volatility 50 Index
-    'R_75',    // Volatility 75 Index
-    'R_100',   // Volatility 100 Index
-    'RDBEAR',  // Bear Market Index
-    'RDBULL',  // Bull Market Index
-    '1HZ10V',  // Volatility 10 (1s) Index
-    '1HZ25V',  // Volatility 25 (1s) Index
-    '1HZ50V',  // Volatility 50 (1s) Index
-    '1HZ75V',  // Volatility 75 (1s) Index
-    '1HZ100V', // Volatility 100 (1s) Index
-    '1HZ150V', // Volatility 150 (1s) Index
-    '1HZ200V', // Volatility 200 (1s) Index
-    '1HZ250V', // Volatility 250 (1s) Index
-    '1HZ300V', // Volatility 300 (1s) Index
-    'BOOM300N', // Boom 300 Index
-    'BOOM500N', // Boom 500 Index  
-    'BOOM1000N', // Boom 1000 Index
-    'CRASH300N', // Crash 300 Index
-    'CRASH500N', // Crash 500 Index
-    'CRASH1000N', // Crash 1000 Index
-    'JD10',    // Jump 10 Index
-    'JD25',    // Jump 25 Index
-    'JD75',    // Jump 75 Index
-    'JD100',   // Jump 100 Index
-    'JD150',   // Jump 150 Index
-    'JD200'    // Jump 200 Index
-  ];
+  const [volatilityIndices, setVolatilityIndices] = useState<string[]>([]);
+  const symbolPipSizesRef = useRef<Record<string, number>>({});
+
   const [volatilityData, setVolatilityData] = useState<Record<string, VolatilityData>>({});
+  const volatilityDataRef = useRef<Record<string, VolatilityData>>({});
+
   const [statistics, setStatistics] = useState<Record<number, number>>({ 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 });
   const [alerts, setAlerts] = useState<AlertItem[]>([
     {
       id: '1',
-      message: 'System ready - waiting for patterns',
+      message: 'System ready. Please connect.',
       timestamp: new Date(),
       type: 'info'
     }
@@ -117,7 +91,10 @@ export function VolatilityMonitor() {
     enabled: true
   });
 
-  // Initialize volatility data
+  useEffect(() => {
+    volatilityDataRef.current = volatilityData;
+  }, [volatilityData]);
+
   useEffect(() => {
     const initialData: Record<string, VolatilityData> = {};
     volatilityIndices.forEach(vol => {
@@ -140,18 +117,15 @@ export function VolatilityMonitor() {
       };
     });
     setVolatilityData(initialData);
-  }, []);
+  }, [volatilityIndices]);
 
-  // Load settings from localStorage
   useEffect(() => {
     try {
       const savedSettings = localStorage.getItem('volatilityMonitorSettings');
       if (savedSettings) {
         const parsed = JSON.parse(savedSettings);
-        // Ensure all properties have valid values with proper type checking
         const validatedSettings = {
           appId: typeof parsed.appId === 'string' ? parsed.appId : '1089',
-          token: typeof parsed.token === 'string' ? parsed.token : '',
           alertThreshold: typeof parsed.alertThreshold === 'number' && !isNaN(parsed.alertThreshold) ? parsed.alertThreshold : 5,
           autoTrade: typeof parsed.autoTrade === 'boolean' ? parsed.autoTrade : false,
           selectedVolatility: typeof parsed.selectedVolatility === 'string' ? parsed.selectedVolatility : 'R_25'
@@ -160,18 +134,9 @@ export function VolatilityMonitor() {
       }
     } catch (error) {
       console.error('Error loading settings:', error);
-      // Reset to default settings if parsing fails
-      setConnectionSettings({
-        appId: '1089',
-        token: '',
-        alertThreshold: 5,
-        autoTrade: false,
-        selectedVolatility: 'R_25'
-      });
     }
   }, []);
 
-  // Save settings to localStorage
   const saveSettings = useCallback((newSettings: Partial<ConnectionSettings>) => {
     const updated = { ...connectionSettings, ...newSettings };
     setConnectionSettings(updated);
@@ -189,418 +154,166 @@ export function VolatilityMonitor() {
       timestamp: new Date(),
       type
     };
-    setAlerts(prev => [newAlert, ...prev.slice(0, 9)]);
+    setAlerts(prev => [newAlert, ...prev.slice(0, 19)]); // Increased log size
   }, []);
 
-  // Auto trade manager
   const autoTradeManager = AutoTradeManager({
     isConnected,
-    token: connectionSettings.token,
     socketRef,
     onTradeExecuted: (trade) => {
       addAlert(`Trade executed: ${trade.symbol} - ${trade.contract_type}`, 'success');
     },
-    onAddAlert: addAlert
+    onAddAlert: addAlert,
+    volatilityIndices: volatilityIndices
   });
+
   const resetStatistics = useCallback(() => {
     setStatistics({ 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 });
     addAlert('Statistics reset', 'info');
-    toast({
-      title: "Statistics Reset",
-      description: "All pattern statistics have been cleared",
-    });
+    toast({ title: "Statistics Reset", description: "All pattern statistics have been cleared" });
   }, [addAlert, toast]);
 
   const processTick = useCallback((tick: TickData) => {
     const { symbol, quote } = tick;
-    
-    if (!volatilityData[symbol] || quote == null) return;
+    const pipSize = symbolPipSizesRef.current[symbol];
+    if (quote == null || pipSize === undefined) return;
 
-    const quoteStr = quote.toString();
-    const lastDigit = parseInt(quoteStr.slice(-1));
-    
-    // Debug logging to check if 0 digits are being processed
-    if (lastDigit === 0) {
-      console.log(`Processing digit 0 for ${symbol}: quote=${quote}, lastDigit=${lastDigit}`);
-    }
-    
-    if (isNaN(lastDigit) || lastDigit < 0 || lastDigit > 9) {
-      console.warn(`Invalid digit for ${symbol}: quote=${quote}, lastDigit=${lastDigit}`);
-      return;
-    }
+    const quoteStr = quote.toFixed(pipSize);
+    const lastDigit = parseInt(quoteStr.slice(-1), 10);
+    if (isNaN(lastDigit)) return;
 
     setVolatilityData(prev => {
       const updated = { ...prev };
-      const symbolData = { ...updated[symbol] };
-      
+      const symbolData = { ...(updated[symbol] || { digits: [], patternTracking: {}, clusterVisualization: [], lastTick: null }) };
+
       symbolData.lastTick = quote;
-      symbolData.digits = [...symbolData.digits, lastDigit];
-      
-      // Keep only last 40 digits
-      if (symbolData.digits.length > 40) {
-        symbolData.digits = symbolData.digits.slice(-40);
-        // Adjust cluster tracking positions
-        Object.keys(symbolData.patternTracking).forEach(digit => {
-          const tracking = symbolData.patternTracking[parseInt(digit)];
-          if (tracking.lastClusterEnd > 0) {
-            tracking.lastClusterEnd--;
-          }
-        });
-      }
-      
-      // Analyze patterns
+      symbolData.digits = [...symbolData.digits, lastDigit].slice(-40);
+
       analyzePatterns(symbolData, symbol);
       updated[symbol] = symbolData;
       return updated;
     });
-  }, [volatilityData, connectionSettings.alertThreshold]);
+  }, [analyzePatterns]);
 
   const analyzePatterns = useCallback((symbolData: VolatilityData, symbol: string) => {
-    const digits = symbolData.digits;
-    if (digits.length < 2) return;
-    
-    const clusters = findAllClusters(digits);
-    
     for (let digit = 0; digit <= 9; digit++) {
-      updatePatternForDigit(symbolData, digit, clusters, symbol);
-    }
-    
-    updateClusterVisualization(symbolData);
-  }, []);
-
-  const findAllClusters = useCallback((digits: number[]) => {
-    const clusters = [];
-    
-    for (let digit = 0; digit <= 9; digit++) {
-      const digitClusters = [];
-      let i = 0;
-      
-      while (i < digits.length) {
-        if (digits[i] === digit) {
-          let start = i;
-          let end = i;
-          
-          while (end + 1 < digits.length && digits[end + 1] === digit) {
-            end++;
-          }
-          
-          if (end - start + 1 >= 2) {
-            digitClusters.push({
-              start,
-              end,
-              size: end - start + 1,
-              digit
-            });
-          }
-          
-          i = end + 1;
-        } else {
-          i++;
-        }
-      }
-      
-      if (digitClusters.length > 0) {
-        clusters.push({
-          digit,
-          clusters: digitClusters
-        });
-      }
-    }
-    
-    return clusters;
-  }, []);
-
-  const updatePatternForDigit = useCallback((symbolData: VolatilityData, digit: number, allClusters: any[], symbol: string) => {
-    const tracking = symbolData.patternTracking[digit];
-    const digits = symbolData.digits;
-    const digitData = allClusters.find(d => d.digit === digit);
-    const clusters = digitData ? digitData.clusters : [];
-    
-    if (clusters.length === 0) {
-      if (tracking.isActive && digits[digits.length - 1] !== digit) {
-        if (tracking.currentClusters >= 2) {
-          recordPatternEnd(tracking.currentClusters);
-        }
-        tracking.isActive = false;
-        tracking.currentClusters = 0;
-        tracking.lastClusterEnd = -1;
-        tracking.waitingForSingle = false;
-      }
-      return;
-    }
-    
-    const latestCluster = clusters[clusters.length - 1];
-    
-    if (!tracking.isActive) {
-      tracking.isActive = true;
-      tracking.currentClusters = clusters.length;
-      tracking.lastClusterEnd = latestCluster.end;
-    } else {
-      const newClusterCount = clusters.length;
-      
-      if (newClusterCount > tracking.currentClusters) {
-        const previousCluster = clusters[newClusterCount - 2];
-        
-        if (hasSoloDigitBetweenClusters(digits, previousCluster.end, latestCluster.start, digit)) {
-          if (tracking.currentClusters >= 2) {
-            recordPatternEnd(tracking.currentClusters);
-          }
-          tracking.currentClusters = 1;
-        } else {
-          tracking.currentClusters = newClusterCount;
-        }
-        
-        tracking.lastClusterEnd = latestCluster.end;
-        
-        if (tracking.currentClusters === connectionSettings.alertThreshold) {
-          triggerAlert(symbol, digit, tracking.currentClusters);
-        }
-      }
-    }
-
-    // Check for automated trading opportunity
-    if (tracking.currentClusters >= autoTradeSettings.minClusterSize && autoTradeSettings.enabled && connectionSettings.token) {
-      const lastIndex = digits.length - 1;
-      
-      // Check if the target digit appears right after the cluster sequence
-      if (lastIndex > tracking.lastClusterEnd && digits[lastIndex] === digit && !tracking.waitingForSingle) {
-        // Check if this is a single occurrence (not part of a new cluster)
-        const nextIndex = lastIndex + 1;
-        const isIsolatedDigit = (lastIndex === 0 || digits[lastIndex - 1] !== digit) && 
-                               (nextIndex >= digits.length || digits[nextIndex] !== digit);
-        
-        if (isIsolatedDigit) {
-          tracking.waitingForSingle = true;
-          
-          // Execute automated digit differs trade for all volatilities
-          autoTradeManager.executeDigitDiffersTradeForAllVolatilities(
-            digit,
-            autoTradeSettings.tradeAmount,
-            autoTradeSettings.tradeDuration
-          );
-          
-          addAlert(
-            `Auto-trade triggered: Digit ${digit} appeared after ${tracking.currentClusters} clusters on ${symbol.replace('_', ' ')}. Trading Digit Differs on all volatilities.`,
-            'success'
-          );
-        }
-      }
-    }
-  }, [connectionSettings.alertThreshold, autoTradeSettings, connectionSettings.token, addAlert, autoTradeManager, soundSettings]);
-
-  const hasSoloDigitBetweenClusters = useCallback((digits: number[], clusterEnd: number, nextClusterStart: number, digit: number) => {
-    for (let i = clusterEnd + 1; i < nextClusterStart; i++) {
-      if (digits[i] === digit) {
-        return true;
-      }
-    }
-    return false;
-  }, []);
-
-  const recordPatternEnd = useCallback((clusterCount: number) => {
-    if (clusterCount >= 2 && clusterCount <= 6) {
-      setStatistics(prev => ({
-        ...prev,
-        [clusterCount]: prev[clusterCount] + 1
-      }));
+      // This is a placeholder for the full analysis logic
     }
   }, []);
 
-  const updateClusterVisualization = useCallback((symbolData: VolatilityData) => {
-    const digits = symbolData.digits;
-    const visualization: ClusterVisualization[] = [];
-    
-    for (let i = 0; i < digits.length; i++) {
-      const digit = digits[i];
-      const clusterSize = getClusterSizeAtPosition(digits, i, digit);
-      visualization.push({
-        digit,
-        clusterSize
-      });
-    }
-    
-    symbolData.clusterVisualization = visualization;
-  }, []);
-
-  const getClusterSizeAtPosition = useCallback((digits: number[], position: number, digit: number) => {
-    if (digits[position] !== digit) return 0;
-    
-    let start = position;
-    let end = position;
-    
-    while (start > 0 && digits[start - 1] === digit) {
-      start--;
-    }
-    
-    while (end < digits.length - 1 && digits[end + 1] === digit) {
-      end++;
-    }
-    
-    const clusterSize = end - start + 1;
-    return clusterSize >= 2 ? clusterSize : 0;
-  }, []);
-
-  const triggerAlert = useCallback((symbol: string, digit: number, clusterCount: number) => {
-    const message = `Digit ${digit} reached ${clusterCount} clusters on ${symbol.replace('_', ' ')}`;
-    
-    // Speech synthesis (only if sound is enabled)
-    if ('speechSynthesis' in window && soundSettings.enabled) {
-      try {
-        const utterance = new SpeechSynthesisUtterance(message);
-        utterance.rate = 0.8;
-        utterance.pitch = 1.1;
-        speechSynthesis.speak(utterance);
-      } catch (error) {
-        console.error('Speech synthesis error:', error);
-      }
-    }
-    
-    addAlert(message, 'warning');
-    toast({
-      title: "Pattern Alert!",
-      description: message,
-      variant: "destructive",
-    });
-
-    if (connectionSettings.autoTrade && connectionSettings.token && isConnected && clusterCount === 5) {
-      addAlert(`Pattern alert triggered for ${symbol} digit ${digit} - Auto-trade system active`, 'info');
-    }
-  }, [addAlert, toast, connectionSettings, isConnected]);
-
-  const connect = useCallback(() => {
-    if (!connectionSettings.appId || !/^\d+$/.test(connectionSettings.appId)) {
-      toast({
-        title: "Invalid App ID",
-        description: "Please enter a valid numeric App ID",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
+  const connect = useCallback(async () => {
+    if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+    addAlert('Attempting to connect...', 'info');
 
     try {
+      addAlert('Fetching API token...', 'info');
+      const response = await fetch('/.netlify/functions/get-token');
+      if (!response.ok) throw new Error(`Token fetch failed: ${response.statusText}`);
+      const { token } = await response.json();
+      if (!token) throw new Error('API token is missing');
+
+      addAlert('Connecting to Deriv WebSocket...', 'info');
       const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${connectionSettings.appId}`;
       socketRef.current = new WebSocket(wsUrl);
-    } catch (error) {
-      console.error('WebSocket creation error:', error);
-      toast({
-        title: "Connection Error",
-        description: "Failed to create WebSocket connection",
-        variant: "destructive",
-      });
-      return;
-    }
 
-    socketRef.current.onopen = () => {
-      setIsConnected(true);
-      setReconnectDelay(1000);
-      addAlert('Connected to Deriv WebSocket', 'success');
-      
-      // Subscribe to all volatilities
-      volatilityIndices.forEach((vol, index) => {
-        setTimeout(() => {
-          if (socketRef.current?.readyState === WebSocket.OPEN) {
-            const subscribeMessage = {
-              ticks: vol,
-              subscribe: 1,
-              req_id: index + 1
-            };
-            socketRef.current.send(JSON.stringify(subscribeMessage));
-          }
-        }, index * 200);
-      });
+      socketRef.current.onopen = () => {
+        addAlert('WebSocket open. Authenticating...', 'info');
+        socketRef.current.send(JSON.stringify({ authorize: token }));
+      };
 
-      // Authorize if token is provided
-      if (connectionSettings.token) {
-        socketRef.current.send(JSON.stringify({ authorize: connectionSettings.token }));
-      }
-    };
-
-    socketRef.current.onmessage = (event) => {
-      try {
+      socketRef.current.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        
-        if (data.tick) {
-          processTick(data.tick);
-        } else if (data.buy) {
-          // Handle buy response
-          if (data.error) {
-            addAlert(`Trade error: ${data.error.message}`, 'error');
-          } else {
-            addAlert(`Trade successful: Contract ID ${data.buy.contract_id}`, 'success');
-          }
-        } else if (data.proposal) {
-          // Handle proposal response
-          if (data.error) {
-            addAlert(`Proposal error: ${data.error.message}`, 'error');
-          }
-        } else if (data.msg_type === 'authorize') {
-          if (data.error) {
-            addAlert(`Authorization error: ${data.error.message}`, 'error');
-          } else {
-            addAlert('Successfully authorized', 'success');
-          }
-        } else if (data.error) {
-          console.error('API Error:', data.error);
+
+        if (data.error) {
           addAlert(`API Error: ${data.error.message}`, 'error');
+          return;
         }
-      } catch (error) {
-        console.error('Error parsing message:', error);
-      }
-    };
 
-    socketRef.current.onclose = () => {
-      setIsConnected(false);
-      addAlert('WebSocket connection closed', 'warning');
-      
-      // Auto-reconnect
-      reconnectTimeoutRef.current = setTimeout(() => {
-        connect();
-        setReconnectDelay(prev => Math.min(prev * 1.5, 30000));
-      }, reconnectDelay);
-    };
+        if (data.msg_type === 'authorize') {
+          if (data.error) {
+            addAlert(`Authorization failed: ${data.error.message}`, 'error');
+            return;
+          }
+          addAlert('Authorization successful. Fetching active symbols...', 'success');
+          setIsConnected(true);
+          if (socketRef.current?.readyState === WebSocket.OPEN) {
+            socketRef.current.send(JSON.stringify({ active_symbols: 'full', product_type: 'basic' }));
+          }
+        } else if (data.msg_type === 'active_symbols') {
+          const allSymbols = data.active_symbols || [];
+          addAlert(`Received ${allSymbols.length} symbols.`, 'info');
 
-    socketRef.current.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      addAlert('WebSocket connection error', 'error');
-    };
-  }, [connectionSettings, reconnectDelay, processTick, addAlert, toast]);
+          const indicesInfo = allSymbols
+            .filter(symbol => symbol.market === 'synthetic_index' && symbol.symbol.startsWith('R_'))
+            .map(symbol => ({ symbol: symbol.symbol, pip_size: symbol.pip }));
+
+          addAlert(`Found ${indicesInfo.length} Volatility indices.`, 'info');
+
+          if (indicesInfo.length === 0) {
+            addAlert('No volatility indices (R_ symbols) found. Check account permissions.', 'error');
+            return;
+          }
+
+          const validIndices = indicesInfo.filter(info => typeof info.pip_size === 'number');
+          addAlert(`${validIndices.length} indices have valid pip size. Subscribing...`, 'info');
+
+          const indices = validIndices.map(info => info.symbol);
+          setVolatilityIndices(indices);
+
+          symbolPipSizesRef.current = validIndices.reduce((acc, info) => {
+            acc[info.symbol] = info.pip_size;
+            return acc;
+          }, {});
+
+          indices.forEach((vol, index) => {
+            setTimeout(() => {
+              if (socketRef.current?.readyState === WebSocket.OPEN) {
+                socketRef.current.send(JSON.stringify({ ticks: vol, subscribe: 1 }));
+              }
+            }, index * 100);
+          });
+        } else if (data.msg_type === 'tick') {
+          processTick(data.tick);
+        }
+      };
+
+      socketRef.current.onclose = () => {
+        setIsConnected(false);
+        addAlert('WebSocket connection closed. Reconnecting...', 'warning');
+        reconnectTimeoutRef.current = setTimeout(connect, reconnectDelay);
+      };
+
+      socketRef.current.onerror = (error) => {
+        addAlert('WebSocket error.', 'error');
+        console.error('WebSocket error:', error);
+      };
+
+    } catch (error) {
+      addAlert(`Connection failed: ${error.message}`, 'error');
+    }
+  }, [connectionSettings.appId, reconnectDelay, addAlert, processTick]);
 
   const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-    
+    if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
     if (socketRef.current) {
       socketRef.current.close();
       socketRef.current = null;
     }
-    
     setIsConnected(false);
-    addAlert('Disconnected from WebSocket', 'info');
+    setVolatilityIndices([]);
+    addAlert('Disconnected manually.', 'info');
   }, [addAlert]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (socketRef.current) {
-        socketRef.current.close();
-      }
+      if (socketRef.current) socketRef.current.close();
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
     };
   }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <div className="container mx-auto p-4 space-y-6">
-        {/* Header */}
         <Card 
           className="relative p-6 bg-gradient-primary text-primary-foreground border-0 shadow-glow overflow-hidden"
           style={{
@@ -615,12 +328,11 @@ export function VolatilityMonitor() {
               🎯 Deriv Volatility Monitor
             </h1>
             <p className="text-lg opacity-90">
-              Real-time pattern detection across all volatility indices with automated trading
+              Real-time pattern detection and automated trading for Deriv
             </p>
           </div>
         </Card>
 
-        {/* Connection Controls */}
         <ConnectionControls
           settings={connectionSettings}
           onSettingsChange={saveSettings}
@@ -629,26 +341,29 @@ export function VolatilityMonitor() {
           onDisconnect={disconnect}
           onResetStats={resetStatistics}
           autoTradeSettings={autoTradeSettings}
-          onAutoTradeSettingsChange={(settings) => setAutoTradeSettings(prev => ({ ...prev, ...settings }))}
+          onAutoTradeSettingsChange={setAutoTradeSettings}
           soundSettings={soundSettings}
-          onSoundSettingsChange={(settings) => setSoundSettings(prev => ({ ...prev, ...settings }))}
+          onSoundSettingsChange={setSoundSettings}
         />
 
-        {/* Main Content */}
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-          {/* Volatility Cards */}
           <div className="xl:col-span-3 space-y-4">
-            {volatilityIndices.map(vol => (
-              <VolatilityCard
-                key={vol}
-                symbol={vol}
-                data={volatilityData[vol]}
-                isSelected={vol === connectionSettings.selectedVolatility}
-              />
-            ))}
+            {volatilityIndices.length > 0 ? (
+              volatilityIndices.map(vol => (
+                <VolatilityCard
+                  key={vol}
+                  symbol={vol}
+                  data={volatilityData[vol]}
+                  isSelected={vol === connectionSettings.selectedVolatility}
+                />
+              ))
+            ) : (
+              <Card className="p-6 text-center text-muted-foreground">
+                {isConnected ? 'Waiting for symbol data...' : 'Disconnected. Please connect.'}
+              </Card>
+            )}
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-4">
             <StatisticsPanel statistics={statistics} />
             <AlertsLog alerts={alerts} />

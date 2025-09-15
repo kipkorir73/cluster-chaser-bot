@@ -2,23 +2,7 @@
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ],
-  "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    },
-    "noImplicitAny": false,
-    "noUnusedParameters": false,
-    "skipLibCheck": true,
-    "allowJs": true,
-    "noUnusedLocals": false,
-    "strictNullChecks": false,
-    "types": ["vitest/globals", "@testing-library/jest-dom"]
-  },
-  "include": [
-    "src/test/**/*.ts",
-    "src/test/**/*.tsx"
+    { "path": "./tsconfig.node.json" },
+    { "path": "./tsconfig.vitest.json" }
   ]
 }

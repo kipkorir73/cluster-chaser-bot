@@ -1,20 +1,13 @@
 import React, { useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
-interface TradeRequest {
-  symbol: string;
-  digit: number;
-  amount: number;
-  duration: number;
-  basis: 'stake' | 'payout';
-}
-
 interface AutoTradeManagerProps {
   isConnected: boolean;
   token: string;
   socketRef: React.MutableRefObject<WebSocket | null>;
   onTradeExecuted: (trade: any) => void;
   onAddAlert: (message: string, type: 'info' | 'warning' | 'success' | 'error') => void;
+  volatilityIndices: string[];
 }
 
 export function AutoTradeManager({ 
@@ -22,7 +15,8 @@ export function AutoTradeManager({
   token, 
   socketRef, 
   onTradeExecuted, 
-  onAddAlert 
+  onAddAlert,
+  volatilityIndices
 }: AutoTradeManagerProps) {
   const { toast } = useToast();
   const tradeRequestIdRef = useRef(1000);
@@ -36,19 +30,8 @@ export function AutoTradeManager({
       onAddAlert('Cannot execute trade: Not connected or no token provided', 'error');
       return;
     }
-
-    // All Deriv volatility indices that support Digit Differs contract
-    const volatilities = [
-      'R_10', 'R_25', 'R_50', 'R_75', 'R_100',
-      'RDBEAR', 'RDBULL',
-      '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', 
-      '1HZ150V', '1HZ200V', '1HZ250V', '1HZ300V',
-      'BOOM300N', 'BOOM500N', 'BOOM1000N',
-      'CRASH300N', 'CRASH500N', 'CRASH1000N',
-      'JD10', 'JD25', 'JD75', 'JD100', 'JD150', 'JD200'
-    ];
     
-    for (const symbol of volatilities) {
+    for (const symbol of volatilityIndices) {
       try {
         const requestId = tradeRequestIdRef.current++;
         
@@ -100,7 +83,7 @@ export function AutoTradeManager({
         onAddAlert(`Failed to execute trade for ${symbol}: ${error}`, 'error');
       }
     }
-  }, [isConnected, token, socketRef, onAddAlert, onTradeExecuted, toast]);
+  }, [isConnected, token, socketRef, onAddAlert, onTradeExecuted, toast, volatilityIndices]);
 
   return {
     executeDigitDiffersTradeForAllVolatilities
