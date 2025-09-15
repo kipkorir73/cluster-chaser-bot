@@ -14,6 +14,7 @@ interface ConnectionSettings {
   alertThreshold: number;
   autoTrade: boolean;
   selectedVolatility: string;
+  apiToken: string;
 }
 
 interface AutoTradeSettings {
@@ -96,6 +97,32 @@ export function ConnectionControls({
             onChange={(e) => onSettingsChange({ appId: e.target.value })}
             className="bg-background/50"
           />
+        </div>
+
+        {/* API Token */}
+        <div className="space-y-2 col-span-2">
+          <Label htmlFor="apiToken" className="text-sm font-medium">
+            API Token (Optional)
+          </Label>
+          <Input
+            id="apiToken"
+            type="password"
+            placeholder="Enter your Deriv API token (optional)"
+            value={settings.apiToken}
+            onChange={(e) => onSettingsChange({ apiToken: e.target.value })}
+            className="bg-background/50"
+          />
+          <p className="text-xs text-muted-foreground">
+            Leave empty to use demo account. Get your token from{' '}
+            <a 
+              href="https://app.deriv.com/account/api-token" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              app.deriv.com
+            </a>
+          </p>
         </div>
 
         {/* Display Volatility */}

@@ -1,13 +1,4 @@
-/* Minimal Vite client env types to enable import.meta.env usage */
-
-declare module 'rollup/parseAst' {
-  export interface AcornNode {
-    type: string;
-    start: number;
-    end: number;
-    [key: string]: any;
-  }
-}
+/// <reference types="vite/client" />
 
 interface ImportMetaEnv {
   readonly VITE_DERIV_API_TOKEN?: string;
@@ -38,4 +29,3 @@ declare module '*.svg' {
   const src: string;
   export default src;
 }
-
