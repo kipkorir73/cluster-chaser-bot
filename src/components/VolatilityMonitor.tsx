@@ -252,6 +252,27 @@ export function VolatilityMonitor() {
       symbolData.lastTick = quote;
       symbolData.digits = [...symbolData.digits, lastDigit].slice(-40);
 
+      // Build cluster visualization from recent digits
+      const buildClusterVisualization = (digits: number[]): ClusterVisualization[] => {
+        const maxItems = 30;
+        const recent = digits.slice(-maxItems);
+        const result: ClusterVisualization[] = [];
+        let i = 0;
+        while (i < recent.length) {
+          const val = recent[i];
+          let j = i;
+          while (j + 1 < recent.length && recent[j + 1] === val) j++;
+          const runLength = j - i + 1;
+          for (let k = i; k <= j; k++) {
+            result.push({ digit: val, clusterSize: runLength });
+          }
+          i = j + 1;
+        }
+        return result;
+      };
+
+      symbolData.clusterVisualization = buildClusterVisualization(symbolData.digits);
+
       analyzePatterns(symbolData, symbol);
       updated[symbol] = symbolData;
       return updated;
@@ -326,7 +347,7 @@ export function VolatilityMonitor() {
 
           const indicesInfo = allSymbols
             .filter(symbol => symbol.market === 'synthetic_index' && symbol.symbol.startsWith('R_'))
-            .map(symbol => ({ symbol: symbol.symbol, pip_size: symbol.pip }));
+            .map(symbol => ({ symbol: symbol.symbol, pip_size: Number(symbol.pip) }));
 
           addAlert(`Found ${indicesInfo.length} Volatility indices.`, 'info');
 
