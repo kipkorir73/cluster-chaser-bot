@@ -41,6 +41,7 @@ interface ConnectionSettings {
   alertThreshold: number;
   autoTrade: boolean;
   selectedVolatility: string;
+  apiToken: string;
 }
 
 interface TickData {
@@ -60,7 +61,8 @@ export function VolatilityMonitor() {
     appId: '1089',
     alertThreshold: 5,
     autoTrade: false,
-    selectedVolatility: 'R_25'
+    selectedVolatility: 'R_25',
+    apiToken: ''
   });
   
   const [volatilityIndices, setVolatilityIndices] = useState<string[]>([]);
@@ -209,12 +211,18 @@ export function VolatilityMonitor() {
     addAlert('Attempting to connect...', 'info');
 
     try {
-      addAlert('Fetching API token...', 'info');
-      const response = await fetch('/.netlify/functions/get-token');
-      if (!response.ok) throw new Error(`Token fetch failed: ${response.statusText}`);
-      const { token } = await response.json();
-      if (!token) throw new Error('API token is missing');
-      setApiToken(token);
+      // Use API token from settings or localStorage, or default demo token
+      let token = connectionSettings.apiToken || localStorage.getItem('deriv_api_token') || '';
+      
+      if (!token) {
+        // Connect without auth token for demo/public data
+        addAlert('Connecting with demo account (no API token)...', 'info');
+      } else {
+        // Save token to localStorage for future use
+        localStorage.setItem('deriv_api_token', token);
+        setApiToken(token);
+        addAlert('Connecting with API token...', 'info');
+      }
 
       addAlert('Connecting to Deriv WebSocket...', 'info');
       const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${connectionSettings.appId}`;
