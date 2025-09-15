@@ -4,15 +4,18 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "target": "ES2022",
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "types": ["vitest/globals", "@testing-library/jest-dom", "node"],
-    "typeRoots": ["./node_modules/@types", "./node_modules"]
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "types": ["vite/client"],
+    "typeRoots": ["./node_modules/@types", "./node_modules"],
+    "skipLibCheck": true
   },
   "include": [
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx",
-    "src/test/**/*.ts",
-    "src/test/**/*.tsx"
+    "src/**/*.ts",
+    "src/**/*.tsx"
   ]
 }

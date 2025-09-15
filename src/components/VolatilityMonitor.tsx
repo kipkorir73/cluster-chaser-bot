@@ -91,6 +91,8 @@ export function VolatilityMonitor() {
     enabled: true
   });
 
+  const [apiToken, setApiToken] = useState<string>('');
+
   useEffect(() => {
     volatilityDataRef.current = volatilityData;
   }, [volatilityData]);
@@ -159,6 +161,7 @@ export function VolatilityMonitor() {
 
   const autoTradeManager = AutoTradeManager({
     isConnected,
+    token: apiToken,
     socketRef,
     onTradeExecuted: (trade) => {
       addAlert(`Trade executed: ${trade.symbol} - ${trade.contract_type}`, 'success');
@@ -172,6 +175,12 @@ export function VolatilityMonitor() {
     addAlert('Statistics reset', 'info');
     toast({ title: "Statistics Reset", description: "All pattern statistics have been cleared" });
   }, [addAlert, toast]);
+
+  const analyzePatterns = useCallback((symbolData: VolatilityData, symbol: string) => {
+    for (let digit = 0; digit <= 9; digit++) {
+      // This is a placeholder for the full analysis logic
+    }
+  }, []);
 
   const processTick = useCallback((tick: TickData) => {
     const { symbol, quote } = tick;
@@ -195,12 +204,6 @@ export function VolatilityMonitor() {
     });
   }, [analyzePatterns]);
 
-  const analyzePatterns = useCallback((symbolData: VolatilityData, symbol: string) => {
-    for (let digit = 0; digit <= 9; digit++) {
-      // This is a placeholder for the full analysis logic
-    }
-  }, []);
-
   const connect = useCallback(async () => {
     if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
     addAlert('Attempting to connect...', 'info');
@@ -211,6 +214,7 @@ export function VolatilityMonitor() {
       if (!response.ok) throw new Error(`Token fetch failed: ${response.statusText}`);
       const { token } = await response.json();
       if (!token) throw new Error('API token is missing');
+      setApiToken(token);
 
       addAlert('Connecting to Deriv WebSocket...', 'info');
       const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${connectionSettings.appId}`;
@@ -341,9 +345,9 @@ export function VolatilityMonitor() {
           onDisconnect={disconnect}
           onResetStats={resetStatistics}
           autoTradeSettings={autoTradeSettings}
-          onAutoTradeSettingsChange={setAutoTradeSettings}
+          onAutoTradeSettingsChange={(partial) => setAutoTradeSettings(prev => ({ ...prev, ...partial }))}
           soundSettings={soundSettings}
-          onSoundSettingsChange={setSoundSettings}
+          onSoundSettingsChange={(partial) => setSoundSettings(prev => ({ ...prev, ...partial }))}
         />
 
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
