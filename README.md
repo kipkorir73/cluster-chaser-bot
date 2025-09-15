@@ -71,3 +71,32 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Configure Deriv API token (live data)
+
+To receive live data and authorize with Deriv, set your API token using either method below.
+
+1) Local development (.env)
+
+Create a file named `.env` in the project root with:
+
+```
+VITE_DERIV_API_TOKEN=your_deriv_api_token_here
+```
+
+Then run the dev server:
+
+```
+npm run dev
+```
+
+2) Netlify function environment variable (production)
+
+If deploying on Netlify, add an environment variable in your site settings:
+
+- Key: `VITE_DERIV_API_TOKEN`
+- Value: your Deriv API token
+
+The frontend will first try `/.netlify/functions/get-token`, which returns this token. If the function is unavailable, it falls back to `import.meta.env.VITE_DERIV_API_TOKEN`.
+
+Security note: Never hardcode tokens in code or commit `.env` files.

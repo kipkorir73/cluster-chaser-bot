@@ -6,7 +6,7 @@ import { StatisticsPanel } from './StatisticsPanel';
 import { AlertsLog } from './AlertsLog';
 import { Card } from '@/components/ui/card';
 import { AutoTradeManager } from './AutoTradeManager';
-import dashboardHero from '@/assets/dashboard-hero.jpg';
+import dashboardHero from '../assets/dashboard-hero.jpg';
 
 // Interfaces remain the same
 interface VolatilityData {
@@ -209,12 +209,33 @@ export function VolatilityMonitor() {
     addAlert('Attempting to connect...', 'info');
 
     try {
-      addAlert('Fetching API token...', 'info');
-      const response = await fetch('/.netlify/functions/get-token');
-      if (!response.ok) throw new Error(`Token fetch failed: ${response.statusText}`);
-      const { token } = await response.json();
-      if (!token) throw new Error('API token is missing');
-      setApiToken(token);
+      addAlert('Resolving API token...', 'info');
+      let resolvedToken: string | undefined;
+
+      try {
+        const response = await fetch('/.netlify/functions/get-token');
+        if (response.ok) {
+          const body = await response.json();
+          if (body && typeof body.token === 'string' && body.token.length > 0) {
+            resolvedToken = body.token;
+          }
+        }
+      } catch (e) {
+        // Ignore; we'll try env fallback next
+      }
+
+      if (!resolvedToken) {
+        const envToken = import.meta.env?.VITE_DERIV_API_TOKEN as string | undefined;
+        if (envToken && envToken.length > 0) {
+          resolvedToken = envToken;
+        }
+      }
+
+      if (!resolvedToken) {
+        throw new Error('API token not found. Set VITE_DERIV_API_TOKEN or configure Netlify function.');
+      }
+
+      setApiToken(resolvedToken);
 
       addAlert('Connecting to Deriv WebSocket...', 'info');
       const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${connectionSettings.appId}`;
@@ -222,7 +243,7 @@ export function VolatilityMonitor() {
 
       socketRef.current.onopen = () => {
         addAlert('WebSocket open. Authenticating...', 'info');
-        socketRef.current.send(JSON.stringify({ authorize: token }));
+        socketRef.current.send(JSON.stringify({ authorize: resolvedToken }));
       };
 
       socketRef.current.onmessage = (event) => {
