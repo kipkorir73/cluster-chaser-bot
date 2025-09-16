@@ -71,3 +71,32 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Single-source Deriv API token + trade database
+
+- Set your token once in project root `.env`:
+
+```
+DERIV_API_TOKEN=your_deriv_api_token_here
+```
+
+- Start backend API (Express + SQLite):
+
+```
+cd backend && npm install && npm run start
+```
+
+- Start frontend (Vite):
+
+```
+cd .. && npm run dev
+```
+
+During development, the frontend proxies `/api/*` to the backend on `http://localhost:3001`.
+
+Endpoints:
+- `GET /api/token` — returns `{ token }` from `DERIV_API_TOKEN`
+- `POST /api/trades` — body: `{ symbol, contract_type, amount, duration, target_digit, paper, timestamp }`
+- `GET /api/trades?limit=100` — latest stored trades
+
+Security note: Never commit `.env`.

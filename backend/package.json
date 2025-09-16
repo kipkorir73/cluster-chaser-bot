@@ -2,8 +2,10 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -11,7 +13,10 @@
   "license": "ISC",
   "dependencies": {
     "@types/ws": "^8.18.1",
+    "better-sqlite3": "^11.8.1",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.2",
+    "express": "^4.21.1",
     "ws": "^8.18.3"
   }
 }

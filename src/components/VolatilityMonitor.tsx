@@ -6,7 +6,7 @@ import { StatisticsPanel } from './StatisticsPanel';
 import { AlertsLog } from './AlertsLog';
 import { Card } from '@/components/ui/card';
 import { AutoTradeManager } from './AutoTradeManager';
-import dashboardHero from '@/assets/dashboard-hero.jpg';
+import dashboardHero from '../assets/dashboard-hero.jpg';
 
 // Interfaces remain the same
 interface VolatilityData {
@@ -93,6 +93,10 @@ export function VolatilityMonitor() {
     enabled: true
   });
 
+  const [paperSettings, setPaperSettings] = useState({
+    enabled: true
+  });
+
   const [apiToken, setApiToken] = useState<string>('');
 
   useEffect(() => {
@@ -169,7 +173,8 @@ export function VolatilityMonitor() {
       addAlert(`Trade executed: ${trade.symbol} - ${trade.contract_type}`, 'success');
     },
     onAddAlert: addAlert,
-    volatilityIndices: volatilityIndices
+    volatilityIndices: volatilityIndices,
+    paperTrading: paperSettings.enabled
   });
 
   const resetStatistics = useCallback(() => {
@@ -179,10 +184,59 @@ export function VolatilityMonitor() {
   }, [addAlert, toast]);
 
   const analyzePatterns = useCallback((symbolData: VolatilityData, symbol: string) => {
-    for (let digit = 0; digit <= 9; digit++) {
-      // This is a placeholder for the full analysis logic
+    const digits = symbolData.digits;
+    if (!digits || digits.length === 0) return;
+
+    const minCluster = autoTradeSettings.minClusterSize;
+
+    for (let target = 0; target <= 9; target++) {
+      const tracking = symbolData.patternTracking[target] || {
+        currentClusters: 0,
+        isActive: false,
+        lastClusterEnd: -1,
+        expectedNextCluster: false,
+        waitingForSingle: false
+      };
+
+      // Count clusters of the target digit and the end index of the last cluster
+      let clusters = 0;
+      let lastClusterEnd = -1;
+      for (let i = 0; i < digits.length; i++) {
+        if (digits[i] === target && (i === 0 || digits[i - 1] !== target)) {
+          let j = i;
+          while (j + 1 < digits.length && digits[j + 1] === target) j++;
+          clusters++;
+          lastClusterEnd = j;
+          i = j;
+        }
+      }
+
+      tracking.currentClusters = clusters;
+      tracking.lastClusterEnd = lastClusterEnd;
+      tracking.isActive = clusters >= 1;
+
+      // If we reached threshold, look for a single isolated target after last cluster end
+      if (clusters >= minCluster) {
+        const lastIndex = digits.length - 1;
+        if (lastIndex > lastClusterEnd && digits[lastIndex] === target && !tracking.waitingForSingle) {
+          const isIsolated = (lastIndex === 0 || digits[lastIndex - 1] !== target) &&
+                            (lastIndex === digits.length - 1 || digits[lastIndex + 1] !== target);
+          if (isIsolated && autoTradeSettings.enabled) {
+            addAlert(`Signal: ${symbol} digit ${target} differs after cluster x${clusters}. Placing trades...`, 'warning');
+            autoTradeManager.executeDigitDiffersTradeForAllVolatilities(target, autoTradeSettings.tradeAmount, autoTradeSettings.tradeDuration);
+            tracking.waitingForSingle = true;
+          }
+        }
+      }
+
+      // Reset waiting flag once the digit changes again
+      if (digits[digits.length - 1] !== target) {
+        tracking.waitingForSingle = false;
+      }
+
+      symbolData.patternTracking[target] = tracking;
     }
-  }, []);
+  }, [autoTradeSettings.enabled, autoTradeSettings.minClusterSize, autoTradeSettings.tradeAmount, autoTradeSettings.tradeDuration, addAlert, autoTradeManager]);
 
   const processTick = useCallback((tick: TickData) => {
     const { symbol, quote } = tick;
@@ -206,31 +260,65 @@ export function VolatilityMonitor() {
     });
   }, [analyzePatterns]);
 
+  // ✅ Fixed connect function
   const connect = useCallback(async () => {
     if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
     addAlert('Attempting to connect...', 'info');
 
     try {
-      // Use API token from settings or localStorage, or default demo token
-      let token = connectionSettings.apiToken || localStorage.getItem('deriv_api_token') || '';
-      
-      if (!token) {
-        // Connect without auth token for demo/public data
-        addAlert('Connecting with demo account (no API token)...', 'info');
-      } else {
-        // Save token to localStorage for future use
-        localStorage.setItem('deriv_api_token', token);
-        setApiToken(token);
-        addAlert('Connecting with API token...', 'info');
+      let resolvedToken: string | undefined;
+      let tokenSource: string = 'unknown';
+
+      // 1. Try backend-provided token
+      try {
+        const response = await fetch('/api/token');
+        if (response.ok) {
+          const body = await response.json();
+          if (body && typeof body.token === 'string' && body.token.length > 0) {
+            resolvedToken = body.token;
+            tokenSource = 'backend';
+          }
+        }
+      } catch {
+        addAlert('No backend token found. Falling back...', 'warning');
       }
 
+      // 2. Try user-provided / localStorage token
+      if (!resolvedToken) {
+        const token = connectionSettings.apiToken || localStorage.getItem('deriv_api_token') || '';
+        if (token) {
+          resolvedToken = token;
+          tokenSource = connectionSettings.apiToken ? 'settings' : 'localStorage';
+          localStorage.setItem('deriv_api_token', token);
+        }
+      }
+
+      // 3. Demo mode
+      if (!resolvedToken) {
+        addAlert('⚠️ No API token found. Connecting in demo mode...', 'warning');
+      }
+
+      // Save + mask token
+      if (resolvedToken) {
+        setApiToken(resolvedToken);
+        const masked = resolvedToken.length > 8
+          ? `${'*'.repeat(resolvedToken.length - 4)}${resolvedToken.slice(-4)}`
+          : '****';
+        addAlert(`Using API token from ${tokenSource}: ${masked}`, 'info');
+      }
+
+      // Start WebSocket
       addAlert('Connecting to Deriv WebSocket...', 'info');
       const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${connectionSettings.appId}`;
       socketRef.current = new WebSocket(wsUrl);
 
       socketRef.current.onopen = () => {
-        addAlert('WebSocket open. Authenticating...', 'info');
-        socketRef.current.send(JSON.stringify({ authorize: token }));
+        addAlert('WebSocket open.', 'info');
+        if (resolvedToken) {
+          socketRef.current?.send(JSON.stringify({ authorize: resolvedToken }));
+        } else {
+          socketRef.current?.send(JSON.stringify({ active_symbols: 'full', product_type: 'basic' }));
+        }
       };
 
       socketRef.current.onmessage = (event) => {
@@ -242,48 +330,28 @@ export function VolatilityMonitor() {
         }
 
         if (data.msg_type === 'authorize') {
-          if (data.error) {
-            addAlert(`Authorization failed: ${data.error.message}`, 'error');
-            return;
-          }
-          addAlert('Authorization successful. Fetching active symbols...', 'success');
+          addAlert('Authorization successful. Fetching symbols...', 'success');
           setIsConnected(true);
-          if (socketRef.current?.readyState === WebSocket.OPEN) {
-            socketRef.current.send(JSON.stringify({ active_symbols: 'full', product_type: 'basic' }));
-          }
+          socketRef.current?.send(JSON.stringify({ active_symbols: 'full', product_type: 'basic' }));
         } else if (data.msg_type === 'active_symbols') {
           const allSymbols = data.active_symbols || [];
-          addAlert(`Received ${allSymbols.length} symbols.`, 'info');
-
           const indicesInfo = allSymbols
-            .filter(symbol => symbol.market === 'synthetic_index' && symbol.symbol.startsWith('R_'))
-            .map(symbol => ({ symbol: symbol.symbol, pip_size: symbol.pip }));
+            .filter((s: any) => s.market === 'synthetic_index' && s.symbol.startsWith('R_'))
+            .map((s: any) => ({ symbol: s.symbol, pip_size: s.pip }));
 
-          addAlert(`Found ${indicesInfo.length} Volatility indices.`, 'info');
-
-          if (indicesInfo.length === 0) {
-            addAlert('No volatility indices (R_ symbols) found. Check account permissions.', 'error');
-            return;
-          }
-
-          const validIndices = indicesInfo.filter(info => typeof info.pip_size === 'number');
-          addAlert(`${validIndices.length} indices have valid pip size. Subscribing...`, 'info');
-
-          const indices = validIndices.map(info => info.symbol);
-          setVolatilityIndices(indices);
-
-          symbolPipSizesRef.current = validIndices.reduce((acc, info) => {
-            acc[info.symbol] = info.pip_size;
+          setVolatilityIndices(indicesInfo.map(i => i.symbol));
+          symbolPipSizesRef.current = indicesInfo.reduce((acc: any, i: any) => {
+            acc[i.symbol] = i.pip_size;
             return acc;
           }, {});
 
-          indices.forEach((vol, index) => {
+          indicesInfo.forEach((vol: any, index: number) => {
             setTimeout(() => {
-              if (socketRef.current?.readyState === WebSocket.OPEN) {
-                socketRef.current.send(JSON.stringify({ ticks: vol, subscribe: 1 }));
-              }
+              socketRef.current?.send(JSON.stringify({ ticks: vol.symbol, subscribe: 1 }));
             }, index * 100);
           });
+
+          addAlert(`Subscribed to ${indicesInfo.length} volatility indices.`, 'info');
         } else if (data.msg_type === 'tick') {
           processTick(data.tick);
         }
@@ -291,19 +359,19 @@ export function VolatilityMonitor() {
 
       socketRef.current.onclose = () => {
         setIsConnected(false);
-        addAlert('WebSocket connection closed. Reconnecting...', 'warning');
+        addAlert('WebSocket closed. Reconnecting...', 'warning');
         reconnectTimeoutRef.current = setTimeout(connect, reconnectDelay);
       };
 
       socketRef.current.onerror = (error) => {
-        addAlert('WebSocket error.', 'error');
+        addAlert('WebSocket error occurred.', 'error');
         console.error('WebSocket error:', error);
       };
 
-    } catch (error) {
+    } catch (error: any) {
       addAlert(`Connection failed: ${error.message}`, 'error');
     }
-  }, [connectionSettings.appId, reconnectDelay, addAlert, processTick]);
+  }, [connectionSettings.apiToken, connectionSettings.appId, reconnectDelay, addAlert, processTick]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
@@ -356,6 +424,8 @@ export function VolatilityMonitor() {
           onAutoTradeSettingsChange={(partial) => setAutoTradeSettings(prev => ({ ...prev, ...partial }))}
           soundSettings={soundSettings}
           onSoundSettingsChange={(partial) => setSoundSettings(prev => ({ ...prev, ...partial }))}
+          paperSettings={paperSettings}
+          onPaperSettingsChange={(partial) => setPaperSettings(prev => ({ ...prev, ...partial }))}
         />
 
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
