@@ -1,5 +1,5 @@
+/// <reference path="../global.d.ts" />
 /// <reference types="vite/client" />
-/// <reference path="../rollup-parseAst.d.ts" />
 
 interface ImportMetaEnv {
   readonly VITE_DERIV_API_TOKEN?: string;
