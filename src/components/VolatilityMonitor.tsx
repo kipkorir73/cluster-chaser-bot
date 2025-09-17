@@ -7,6 +7,7 @@ import { AlertsLog } from './AlertsLog';
 import { Card } from '@/components/ui/card';
 import { AutoTradeManager } from './AutoTradeManager';
 import dashboardHero from '../assets/dashboard-hero.jpg';
+import { apiFetch } from '@/lib/api';
 
 // Interfaces remain the same
 interface VolatilityData {
@@ -128,7 +129,7 @@ export function VolatilityMonitor() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/settings');
+        const res = await apiFetch('/api/settings');
         if (res.ok) {
           const s = await res.json();
           if (s?.connectionSettings) setConnectionSettings(prev => ({ ...prev, ...s.connectionSettings }));
@@ -159,7 +160,7 @@ export function VolatilityMonitor() {
           soundSettings,
           paperSettings
         };
-        await fetch('/api/settings', {
+        await apiFetch('/api/settings', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -308,7 +309,7 @@ export function VolatilityMonitor() {
       let tokenSource: 'function' | 'env' | 'unknown' = 'unknown';
 
       try {
-        const response = await fetch('/api/token');
+        const response = await apiFetch('/api/token');
         if (response.ok) {
           const body = await response.json();
           if (body && typeof body.token === 'string' && body.token.length > 0) {

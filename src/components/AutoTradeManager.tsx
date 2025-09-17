@@ -1,5 +1,6 @@
 import React, { useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
 
 interface TradeInfo {
   symbol: string;
@@ -60,7 +61,7 @@ export function AutoTradeManager({
           onTradeExecuted(simulated);
           // Log to backend
           try {
-            await fetch('/api/trades', {
+            await apiFetch('/api/trades', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(simulated)
@@ -123,7 +124,7 @@ export function AutoTradeManager({
                 timestamp: Date.now()
               };
               try {
-                void fetch('/api/trades', {
+                void apiFetch('/api/trades', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(realTrade)

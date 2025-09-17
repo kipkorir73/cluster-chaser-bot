@@ -100,3 +100,24 @@ Endpoints:
 - `GET /api/trades?limit=100` — latest stored trades
 
 Security note: Never commit `.env`.
+
+## Deploy options
+
+Netlify (static frontend only + external backend)
+- Set `VITE_API_BASE_URL` to your backend URL (e.g. `https://your-api.com`)
+- Netlify will build and publish `dist/`
+
+Vercel (frontend + serverless backend)
+- Add `vercel.json` is included to route `/api/*` to `backend/server.js`
+- Set env vars in Vercel dashboard (`DERIV_API_TOKEN`, optional DB_* vars)
+
+Render (full Node app)
+- `render.yaml` provided. Create a new Web Service from repo
+- Set env vars (at minimum `DERIV_API_TOKEN`)
+
+Docker
+```
+docker build -t deriv-monitor .
+docker run -p 3001:3001 --env-file .env deriv-monitor
+```
+Open http://localhost:3001
