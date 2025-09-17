@@ -6,7 +6,8 @@ import { StatisticsPanel } from './StatisticsPanel';
 import { AlertsLog } from './AlertsLog';
 import { Card } from '@/components/ui/card';
 import { AutoTradeManager } from './AutoTradeManager';
-import dashboardHero from '@/assets/dashboard-hero.jpg';
+import dashboardHero from '../assets/dashboard-hero.jpg';
+import { apiFetch } from '@/lib/api';
 
 // Interfaces remain the same
 interface VolatilityData {
@@ -93,6 +94,10 @@ export function VolatilityMonitor() {
     enabled: true
   });
 
+  const [paperSettings, setPaperSettings] = useState({
+    enabled: true
+  });
+
   const [apiToken, setApiToken] = useState<string>('');
 
   useEffect(() => {
@@ -124,32 +129,50 @@ export function VolatilityMonitor() {
   }, [volatilityIndices]);
 
   useEffect(() => {
-    try {
-      const savedSettings = localStorage.getItem('volatilityMonitorSettings');
-      if (savedSettings) {
-        const parsed = JSON.parse(savedSettings);
-        const validatedSettings = {
-          appId: typeof parsed.appId === 'string' ? parsed.appId : '1089',
-          alertThreshold: typeof parsed.alertThreshold === 'number' && !isNaN(parsed.alertThreshold) ? parsed.alertThreshold : 5,
-          autoTrade: typeof parsed.autoTrade === 'boolean' ? parsed.autoTrade : false,
-          selectedVolatility: typeof parsed.selectedVolatility === 'string' ? parsed.selectedVolatility : 'R_25'
-        };
-        setConnectionSettings(prev => ({ ...prev, ...validatedSettings }));
+    (async () => {
+      try {
+        const res = await apiFetch('/api/settings');
+        if (res.ok) {
+          const s = await res.json();
+          if (s?.connectionSettings) setConnectionSettings(prev => ({ ...prev, ...s.connectionSettings }));
+          if (s?.autoTradeSettings) setAutoTradeSettings(prev => ({ ...prev, ...s.autoTradeSettings }));
+          if (s?.soundSettings) setSoundSettings(prev => ({ ...prev, ...s.soundSettings }));
+          if (s?.paperSettings) setPaperSettings(prev => ({ ...prev, ...s.paperSettings }));
+        }
+      } catch (e) {
+        console.error('Failed to fetch settings:', e);
       }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-    }
+    })();
   }, []);
 
   const saveSettings = useCallback((newSettings: Partial<ConnectionSettings>) => {
     const updated = { ...connectionSettings, ...newSettings };
     setConnectionSettings(updated);
-    try {
-      localStorage.setItem('volatilityMonitorSettings', JSON.stringify(updated));
-    } catch (error) {
-      console.error('Error saving settings:', error);
-    }
   }, [connectionSettings]);
+
+  const persistTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (persistTimeoutRef.current) clearTimeout(persistTimeoutRef.current);
+    persistTimeoutRef.current = setTimeout(async () => {
+      try {
+        const payload = {
+          connectionSettings,
+          autoTradeSettings,
+          soundSettings,
+          paperSettings
+        };
+        await apiFetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        console.error('Failed to persist settings:', e);
+      }
+    }, 500);
+    return () => { if (persistTimeoutRef.current) clearTimeout(persistTimeoutRef.current); };
+  }, [connectionSettings, autoTradeSettings, soundSettings, paperSettings]);
 
   const addAlert = useCallback((message: string, type: AlertItem['type'] = 'info') => {
     const newAlert: AlertItem = {
@@ -169,7 +192,8 @@ export function VolatilityMonitor() {
       addAlert(`Trade executed: ${trade.symbol} - ${trade.contract_type}`, 'success');
     },
     onAddAlert: addAlert,
-    volatilityIndices: volatilityIndices
+    volatilityIndices: volatilityIndices,
+    paperTrading: paperSettings.enabled
   });
 
   const resetStatistics = useCallback(() => {
@@ -179,8 +203,57 @@ export function VolatilityMonitor() {
   }, [addAlert, toast]);
 
   const analyzePatterns = useCallback((symbolData: VolatilityData, symbol: string) => {
-    for (let digit = 0; digit <= 9; digit++) {
-      // This is a placeholder for the full analysis logic
+    const digits = symbolData.digits;
+    if (!digits || digits.length === 0) return;
+
+    const minCluster = autoTradeSettings.minClusterSize;
+
+    for (let target = 0; target <= 9; target++) {
+      const tracking = symbolData.patternTracking[target] || {
+        currentClusters: 0,
+        isActive: false,
+        lastClusterEnd: -1,
+        expectedNextCluster: false,
+        waitingForSingle: false
+      };
+
+      // Count clusters of the target digit and the end index of the last cluster
+      let clusters = 0;
+      let lastClusterEnd = -1;
+      for (let i = 0; i < digits.length; i++) {
+        if (digits[i] === target && (i === 0 || digits[i - 1] !== target)) {
+          let j = i;
+          while (j + 1 < digits.length && digits[j + 1] === target) j++;
+          clusters++;
+          lastClusterEnd = j;
+          i = j;
+        }
+      }
+
+      tracking.currentClusters = clusters;
+      tracking.lastClusterEnd = lastClusterEnd;
+      tracking.isActive = clusters >= 1;
+
+      // If we reached threshold, look for a single isolated target after last cluster end
+      if (clusters >= minCluster) {
+        const lastIndex = digits.length - 1;
+        if (lastIndex > lastClusterEnd && digits[lastIndex] === target && !tracking.waitingForSingle) {
+          const isIsolated = (lastIndex === 0 || digits[lastIndex - 1] !== target) &&
+                            (lastIndex === digits.length - 1 || digits[lastIndex + 1] !== target);
+          if (isIsolated && autoTradeSettings.enabled) {
+            addAlert(`Signal: ${symbol} digit ${target} differs after cluster x${clusters}. Placing trades...`, 'warning');
+            autoTradeManager.executeDigitDiffersTradeForAllVolatilities(target, autoTradeSettings.tradeAmount, autoTradeSettings.tradeDuration);
+            tracking.waitingForSingle = true;
+          }
+        }
+      }
+
+      // Reset waiting flag once the digit changes again
+      if (digits[digits.length - 1] !== target) {
+        tracking.waitingForSingle = false;
+      }
+
+      symbolData.patternTracking[target] = tracking;
     }
   }, []);
 
@@ -200,6 +273,27 @@ export function VolatilityMonitor() {
       symbolData.lastTick = quote;
       symbolData.digits = [...symbolData.digits, lastDigit].slice(-40);
 
+      // Build cluster visualization from recent digits
+      const buildClusterVisualization = (digits: number[]): ClusterVisualization[] => {
+        const maxItems = 30;
+        const recent = digits.slice(-maxItems);
+        const result: ClusterVisualization[] = [];
+        let i = 0;
+        while (i < recent.length) {
+          const val = recent[i];
+          let j = i;
+          while (j + 1 < recent.length && recent[j + 1] === val) j++;
+          const runLength = j - i + 1;
+          for (let k = i; k <= j; k++) {
+            result.push({ digit: val, clusterSize: runLength });
+          }
+          i = j + 1;
+        }
+        return result;
+      };
+
+      symbolData.clusterVisualization = buildClusterVisualization(symbolData.digits);
+
       analyzePatterns(symbolData, symbol);
       updated[symbol] = symbolData;
       return updated;
@@ -211,18 +305,35 @@ export function VolatilityMonitor() {
     addAlert('Attempting to connect...', 'info');
 
     try {
-      // Use API token from settings or localStorage, or default demo token
-      let token = connectionSettings.apiToken || localStorage.getItem('deriv_api_token') || '';
-      
-      if (!token) {
-        // Connect without auth token for demo/public data
-        addAlert('Connecting with demo account (no API token)...', 'info');
-      } else {
-        // Save token to localStorage for future use
-        localStorage.setItem('deriv_api_token', token);
-        setApiToken(token);
-        addAlert('Connecting with API token...', 'info');
+      addAlert('Resolving API token...', 'info');
+      let resolvedToken: string | undefined;
+
+      let tokenSource: 'function' | 'env' | 'unknown' = 'unknown';
+
+      try {
+        const response = await apiFetch('/api/token');
+        if (response.ok) {
+          const body = await response.json();
+          if (body && typeof body.token === 'string' && body.token.length > 0) {
+            resolvedToken = body.token;
+            tokenSource = 'env';
+          }
+        } else {
+          throw new Error(`Token endpoint failed: ${response.status}`);
+        }
+      } catch (e) {
+        addAlert('Token fetch failed. Ensure DERIV_API_TOKEN is set on backend.', 'error');
       }
+
+      if (!resolvedToken) {
+        throw new Error('API token not found. Set DERIV_API_TOKEN in backend .env.');
+      }
+
+      setApiToken(resolvedToken);
+      const masked = resolvedToken.length > 8 
+        ? `${'*'.repeat(resolvedToken.length - 4)}${resolvedToken.slice(-4)}` 
+        : '****';
+      addAlert(`Token resolved from ${tokenSource}. Using: ${masked}`, 'info');
 
       addAlert('Connecting to Deriv WebSocket...', 'info');
       const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${connectionSettings.appId}`;
@@ -230,7 +341,7 @@ export function VolatilityMonitor() {
 
       socketRef.current.onopen = () => {
         addAlert('WebSocket open. Authenticating...', 'info');
-        socketRef.current.send(JSON.stringify({ authorize: token }));
+        socketRef.current.send(JSON.stringify({ authorize: resolvedToken }));
       };
 
       socketRef.current.onmessage = (event) => {
@@ -257,7 +368,7 @@ export function VolatilityMonitor() {
 
           const indicesInfo = allSymbols
             .filter(symbol => symbol.market === 'synthetic_index' && symbol.symbol.startsWith('R_'))
-            .map(symbol => ({ symbol: symbol.symbol, pip_size: symbol.pip }));
+            .map(symbol => ({ symbol: symbol.symbol, pip_size: Number(symbol.pip) }));
 
           addAlert(`Found ${indicesInfo.length} Volatility indices.`, 'info');
 
@@ -356,6 +467,8 @@ export function VolatilityMonitor() {
           onAutoTradeSettingsChange={(partial) => setAutoTradeSettings(prev => ({ ...prev, ...partial }))}
           soundSettings={soundSettings}
           onSoundSettingsChange={(partial) => setSoundSettings(prev => ({ ...prev, ...partial }))}
+          paperSettings={paperSettings}
+          onPaperSettingsChange={(partial) => setPaperSettings(prev => ({ ...prev, ...partial }))}
         />
 
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">

@@ -9,7 +9,9 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "start": "node backend/server.js",
+    "postinstall": "cd backend && npm ci --omit=dev || true"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -86,7 +88,7 @@
     "vitest": "^2.0.4"
   },
   "description": "## Project info",
-  "main": "eslint.config.js",
+  "main": "backend/server.js",
   "keywords": [],
   "author": "",
   "license": "ISC"

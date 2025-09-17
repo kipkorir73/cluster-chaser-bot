@@ -71,3 +71,53 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Single-source Deriv API token + trade database
+
+- Set your token once in project root `.env`:
+
+```
+DERIV_API_TOKEN=your_deriv_api_token_here
+```
+
+- Start backend API (Express + SQLite):
+
+```
+cd backend && npm install && npm run start
+```
+
+- Start frontend (Vite):
+
+```
+cd .. && npm run dev
+```
+
+During development, the frontend proxies `/api/*` to the backend on `http://localhost:3001`.
+
+Endpoints:
+- `GET /api/token` — returns `{ token }` from `DERIV_API_TOKEN`
+- `POST /api/trades` — body: `{ symbol, contract_type, amount, duration, target_digit, paper, timestamp }`
+- `GET /api/trades?limit=100` — latest stored trades
+
+Security note: Never commit `.env`.
+
+## Deploy options
+
+Netlify (static frontend only + external backend)
+- Set `VITE_API_BASE_URL` to your backend URL (e.g. `https://your-api.com`)
+- Netlify will build and publish `dist/`
+
+Vercel (frontend + serverless backend)
+- Add `vercel.json` is included to route `/api/*` to `backend/server.js`
+- Set env vars in Vercel dashboard (`DERIV_API_TOKEN`, optional DB_* vars)
+
+Render (full Node app)
+- `render.yaml` provided. Create a new Web Service from repo
+- Set env vars (at minimum `DERIV_API_TOKEN`)
+
+Docker
+```
+docker build -t deriv-monitor .
+docker run -p 3001:3001 --env-file .env deriv-monitor
+```
+Open http://localhost:3001
