@@ -129,6 +129,15 @@ app.get('/api/trades', (req, res) => {
 	res.json({ trades: rows });
 });
 
+// Serve built frontend in production
+const distDir = path.resolve(__dirname, '..', 'dist');
+if (fs.existsSync(distDir)) {
+	app.use(express.static(distDir));
+	app.get('*', (_req, res) => {
+		res.sendFile(path.join(distDir, 'index.html'));
+	});
+}
+
 app.listen(PORT, () => {
 	console.log(`Backend API listening on http://localhost:${PORT}`);
 });
