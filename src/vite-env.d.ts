@@ -1,13 +1,5 @@
-/* Minimal Vite client env types to enable import.meta.env usage */
-
-declare module 'rollup/parseAst' {
-  export interface AcornNode {
-    type: string;
-    start: number;
-    end: number;
-    [key: string]: any;
-  }
-}
+/// <reference types="vite/client" />
+/// <reference path="../rollup-parseAst.d.ts" />
 
 interface ImportMetaEnv {
   readonly VITE_DERIV_API_TOKEN?: string;
@@ -17,7 +9,6 @@ interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
-// Static asset modules (for ESLint/TS awareness in imports)
 declare module '*.jpg' {
   const src: string;
   export default src;

@@ -308,40 +308,52 @@ export function VolatilityMonitor() {
       addAlert('Resolving API token...', 'info');
       let resolvedToken: string | undefined;
 
-      let tokenSource: 'function' | 'env' | 'unknown' = 'unknown';
-
-      try {
-        const response = await apiFetch('/api/token');
-        if (response.ok) {
-          const body = await response.json();
-          if (body && typeof body.token === 'string' && body.token.length > 0) {
-            resolvedToken = body.token;
-            tokenSource = 'env';
+      // First try to use token from settings
+      if (connectionSettings.apiToken?.trim()) {
+        resolvedToken = connectionSettings.apiToken.trim();
+        addAlert('Using token from settings', 'info');
+      } else {
+        // Try to get from backend environment
+        try {
+          const response = await apiFetch('/api/token');
+          if (response.ok) {
+            const body = await response.json();
+            if (body && typeof body.token === 'string' && body.token.length > 0) {
+              resolvedToken = body.token;
+              addAlert('Using token from backend environment', 'info');
+            }
           }
-        } else {
-          throw new Error(`Token endpoint failed: ${response.status}`);
+        } catch (e) {
+          addAlert('No backend token found. Using demo mode.', 'warning');
         }
-      } catch (e) {
-        addAlert('Token fetch failed. Ensure DERIV_API_TOKEN is set on backend.', 'error');
       }
 
       if (!resolvedToken) {
-        throw new Error('API token not found. Set DERIV_API_TOKEN in backend .env.');
+        addAlert('No API token provided. Using demo mode with limited functionality.', 'warning');
+        // For demo mode, we can still connect but won't be able to place trades
+        resolvedToken = 'demo_token';
       }
 
       setApiToken(resolvedToken);
-      const masked = resolvedToken.length > 8 
-        ? `${'*'.repeat(resolvedToken.length - 4)}${resolvedToken.slice(-4)}` 
-        : '****';
-      addAlert(`Token resolved from ${tokenSource}. Using: ${masked}`, 'info');
+      const masked = resolvedToken === 'demo_token' ? 'DEMO' : 
+        resolvedToken.length > 8 ? `${'*'.repeat(resolvedToken.length - 4)}${resolvedToken.slice(-4)}` : '****';
+      addAlert(`Using token: ${masked}`, 'info');
 
       addAlert('Connecting to Deriv WebSocket...', 'info');
       const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${connectionSettings.appId}`;
       socketRef.current = new WebSocket(wsUrl);
 
       socketRef.current.onopen = () => {
-        addAlert('WebSocket open. Authenticating...', 'info');
-        socketRef.current.send(JSON.stringify({ authorize: resolvedToken }));
+        if (resolvedToken === 'demo_token') {
+          addAlert('WebSocket open. Demo mode - no authorization needed.', 'info');
+          setIsConnected(true);
+          if (socketRef.current?.readyState === WebSocket.OPEN) {
+            socketRef.current.send(JSON.stringify({ active_symbols: 'full', product_type: 'basic' }));
+          }
+        } else {
+          addAlert('WebSocket open. Authenticating...', 'info');
+          socketRef.current.send(JSON.stringify({ authorize: resolvedToken }));
+        }
       };
 
       socketRef.current.onmessage = (event) => {
