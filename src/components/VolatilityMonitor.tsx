@@ -611,12 +611,12 @@ export function VolatilityMonitor() {
                 {volatilityIndices.map((symbol) => {
                   const data = volatilityData[symbol];
                   return data ? (
-                    <VolatilityCard
-                      key={symbol}
-                      symbol={symbol}
-                      data={data}
-                      alertThreshold={connectionSettings.alertThreshold}
-                    />
+                     <VolatilityCard
+                       key={symbol}
+                       symbol={symbol}
+                       data={data}
+                       isSelected={false}
+                     />
                   ) : null;
                 })}
               </div>
