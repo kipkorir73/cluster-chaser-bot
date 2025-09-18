@@ -187,68 +187,102 @@ export function VolatilityMonitor() {
     const symbol = tickData.symbol;
     const currentData = volatilityDataRef.current[symbol];
     
-    if (!currentData || currentData.digits.length < 10) return;
+    if (!currentData || currentData.digits.length === 0) return;
 
-    const recentDigits = currentData.digits.slice(-10);
-    const lastDigit = recentDigits[recentDigits.length - 1];
-
-    // Detect clusters for all digits (0-9)
-    for (let digit = 0; digit <= 9; digit++) {
+    const digits = currentData.digits;
+    
+    // Analyze each digit (0-9) for patterns using the CORRECT strategy from backend/index.js
+    for (let digit = 0; digit < 10; digit++) {
       const tracking = currentData.patternTracking[digit];
+      if (!tracking) continue;
       
-      if (lastDigit === digit) {
-        tracking.currentClusters++;
+      // Count SEPARATE clusters of this digit (not consecutive digits!)
+      let clusterEnd = -1;
+      let clusterCount = 0;
+      
+      for (let i = digits.length - 1; i >= 0; i--) {
+        if (digits[i] === digit && (i === 0 || digits[i-1] !== digit)) {
+          // Found start of a cluster
+          let end = i;
+          while(end < digits.length - 1 && digits[end + 1] === digit) {
+            end++;
+          }
+          if (clusterEnd === -1) clusterEnd = end;
+          clusterCount++;
+        }
+      }
+      
+      // Update cluster count
+      if (clusterCount > tracking.currentClusters) {
         tracking.isActive = true;
+        tracking.currentClusters = clusterCount;
+        tracking.lastClusterEnd = clusterEnd;
         tracking.waitingForSingle = false;
-      } else {
-        if (tracking.isActive && tracking.currentClusters >= autoTradeSettings.minClusterSize) {
-          tracking.lastClusterEnd = Date.now();
-          tracking.expectedNextCluster = true;
-          tracking.waitingForSingle = true;
+        
+        console.log(`${symbol}: Digit ${digit} now has ${clusterCount} clusters`);
+      }
+      
+      // Reset if cluster count decreased
+      if (clusterCount < tracking.currentClusters) {
+        tracking.isActive = false;
+        tracking.currentClusters = 0;
+        tracking.lastClusterEnd = -1;
+        tracking.waitingForSingle = false;
+      }
+      
+      // TRADE SIGNAL: Check for isolated single occurrence after sufficient clusters
+      if (tracking.currentClusters >= autoTradeSettings.minClusterSize) {
+        const lastIndex = digits.length - 1;
+        if (lastIndex > tracking.lastClusterEnd && digits[lastIndex] === digit && !tracking.waitingForSingle) {
+          // Check if current digit is isolated (not part of a cluster)
+          const isIsolatedDigit = (lastIndex === 0 || digits[lastIndex - 1] !== digit) && 
+                                 (digits.length > lastIndex + 1 ? digits[lastIndex + 1] !== digit : true);
           
-          // Update statistics
-          setStatistics(prev => ({
-            ...prev,
-            [tracking.currentClusters]: (prev[tracking.currentClusters] || 0) + 1
-          }));
+          if (isIsolatedDigit) {
+            console.log(`🚨 TRADE SIGNAL: ${symbol}, Digit: ${digit}, Clusters: ${tracking.currentClusters}`);
+            tracking.waitingForSingle = true;
+            
+            // Update statistics
+            setStatistics(prev => ({
+              ...prev,
+              [tracking.currentClusters]: (prev[tracking.currentClusters] || 0) + 1
+            }));
 
-          // Execute trades if auto-trade is enabled and authenticated
-          if (connectionSettings.autoTrade && autoTradeSettings.enabled && isAuthenticated) {
-            try {
-              const success = await enhancedTradeManager.executeAutoTradeOnClusterDetection(
-                symbol,
-                digit,
-                tracking.currentClusters
-              );
-              
-              if (success) {
+            // Execute DIGITDIFF trade (next digit will be different from this one)
+            if (connectionSettings.autoTrade && autoTradeSettings.enabled && isAuthenticated) {
+              try {
+                const success = await enhancedTradeManager.executeAutoTradeOnClusterDetection(
+                  symbol,
+                  digit,
+                  tracking.currentClusters
+                );
+                
+                if (success) {
+                  addAlert({
+                    id: `trade_${Date.now()}`,
+                    message: `🚀 TRADE EXECUTED: ${symbol} - After ${tracking.currentClusters} clusters of digit ${digit}, single ${digit} detected. Trading DIGITDIFF!`,
+                    timestamp: new Date(),
+                    type: 'success'
+                  });
+                }
+              } catch (error) {
                 addAlert({
-                  id: `pattern_${Date.now()}`,
-                  message: `🎯 Pattern detected: ${symbol} - Cluster of ${tracking.currentClusters} consecutive ${digit}s. Trades executed for all other digits!`,
+                  id: `error_${Date.now()}`,
+                  message: `❌ Trade failed for ${symbol}: ${error}`,
                   timestamp: new Date(),
-                  type: 'success'
+                  type: 'error'
                 });
               }
-            } catch (error) {
+            } else {
               addAlert({
-                id: `error_${Date.now()}`,
-                message: `❌ Failed to execute trades for ${symbol}: ${error}`,
+                id: `signal_${Date.now()}`,
+                message: `📊 SIGNAL: ${symbol} - ${tracking.currentClusters} clusters of ${digit}, single ${digit} detected. Ready for DIGITDIFF trade!`,
                 timestamp: new Date(),
-                type: 'error'
+                type: 'info'
               });
             }
-          } else {
-            addAlert({
-              id: `pattern_${Date.now()}`,
-              message: `📊 Pattern detected: ${symbol} - Cluster of ${tracking.currentClusters} consecutive ${digit}s`,
-              timestamp: new Date(),
-              type: 'info'
-            });
           }
         }
-        
-        tracking.currentClusters = 0;
-        tracking.isActive = false;
       }
     }
   }, [connectionSettings.autoTrade, autoTradeSettings, enhancedTradeManager, addAlert, isAuthenticated]);
@@ -585,10 +619,15 @@ export function VolatilityMonitor() {
               </div>
             </div>
 
-            <div className="mt-4 p-4 bg-info/10 border border-info/20 rounded-md">
-              <p className="text-sm text-info-foreground">
-                <strong>Strategy:</strong> When a cluster of {autoTradeSettings.minClusterSize}+ identical digits is detected, 
-                the system will auto-trade using {autoTradeSettings.contractType} contracts on all supported volatility indices.
+            <div className="mt-4 p-4 bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-lg">
+              <p className="text-sm font-medium mb-2">
+                <strong>🎯 Advanced Cluster Strategy:</strong>
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                1. Monitor for {autoTradeSettings.minClusterSize}+ <strong>separate clusters</strong> of each digit (0-9)<br/>
+                2. Wait for an <strong>isolated single occurrence</strong> of that digit after clusters<br/>
+                3. Execute <strong>{autoTradeSettings.contractType}</strong> trade (next digit will likely be different)<br/>
+                4. Auto-trade across <strong>all volatility indices</strong> when pattern is detected
               </p>
             </div>
           </Card>
@@ -607,11 +646,12 @@ export function VolatilityMonitor() {
                   const data = volatilityData[symbol];
                   return data ? (
                      <VolatilityCard
-                       key={symbol}
-                       symbol={symbol}
-                       data={data}
-                       isSelected={false}
-                     />
+                        key={symbol}
+                        symbol={symbol}
+                        data={data}
+                        isSelected={false}
+                        autoTradeSettings={autoTradeSettings}
+                      />
                   ) : null;
                 })}
               </div>

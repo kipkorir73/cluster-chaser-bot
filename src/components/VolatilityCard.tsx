@@ -29,9 +29,12 @@ interface VolatilityCardProps {
   symbol: string;
   data?: VolatilityData;
   isSelected: boolean;
+  autoTradeSettings?: {
+    minClusterSize: number;
+  };
 }
 
-export function VolatilityCard({ symbol, data, isSelected }: VolatilityCardProps) {
+export function VolatilityCard({ symbol, data, isSelected, autoTradeSettings }: VolatilityCardProps) {
   // Enhanced display names for all volatility indices
   const getDisplayName = (symbol: string) => {
     const nameMap: Record<string, string> = {
@@ -122,7 +125,7 @@ export function VolatilityCard({ symbol, data, isSelected }: VolatilityCardProps
       {/* Pattern Information */}
       <PatternInfo patterns={activePatterns} />
 
-      {/* Quick Stats */}
+      {/* Quick Stats - Enhanced cluster visualization */}
       {activePatterns.length > 0 && (
         <div className="mt-4 pt-4 border-t border-border/30">
           <div className="flex gap-2 flex-wrap">
@@ -130,22 +133,38 @@ export function VolatilityCard({ symbol, data, isSelected }: VolatilityCardProps
               <Badge
                 key={digit}
                 variant="secondary"
-                className={`${
-                  clusters >= 5 ? 'bg-destructive text-destructive-foreground animate-pulse-slow' :
-                  clusters >= 4 ? 'bg-warning text-warning-foreground' :
-                  clusters >= 3 ? 'bg-info text-info-foreground' :
-                  'bg-secondary text-secondary-foreground'
+                className={`transition-all duration-300 ${
+                  clusters >= 6 ? 'bg-cluster-6 text-white animate-pulse-slow shadow-glow' :
+                  clusters >= 5 ? 'bg-cluster-5 text-white animate-bounce-subtle' :
+                  clusters >= 4 ? 'bg-cluster-4 text-white' :
+                  clusters >= 3 ? 'bg-cluster-3 text-black font-bold' :
+                  'bg-cluster-2 text-black'
                 }`}
               >
-                Digit {digit}: {clusters} clusters
+                <span className="font-mono">
+                  Digit {digit}: {clusters} cluster{clusters > 1 ? 's' : ''}
+                </span>
+                {clusters >= autoTradeSettings?.minClusterSize && (
+                  <span className="ml-1 text-xs">🎯</span>
+                )}
               </Badge>
             ))}
             {activePatterns.length > 3 && (
-              <Badge variant="outline">
-                +{activePatterns.length - 3} more
+              <Badge variant="outline" className="animate-fade-in">
+                +{activePatterns.length - 3} more patterns
               </Badge>
             )}
           </div>
+          
+          {/* Trade readiness indicator */}
+          {activePatterns.some(p => p.clusters >= 3) && (
+            <div className="mt-3 p-2 bg-gradient-primary/10 border border-primary/30 rounded-md">
+              <p className="text-xs text-primary font-medium flex items-center gap-1">
+                <span className="animate-pulse-slow">🚨</span>
+                High-probability trade signals detected!
+              </p>
+            </div>
+          )}
         </div>
       )}
     </Card>

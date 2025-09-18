@@ -72,19 +72,13 @@ export function EnhancedTradeManager({
       // Determine trade parameters based on contract type
       switch (autoTradeSettings.contractType) {
         case 'DIGITDIFF':
-          // Trade on all other digits (not the clustered one)
-          const otherDigits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter(d => d !== detectedDigit);
-          
-          for (const targetDigit of otherDigits) {
-            tradeParams = {
-              contract_type: 'DIGITDIFF',
-              barrier: targetDigit.toString()
-            };
-            contractDescription = `DIGITDIFF targeting ${targetDigit}`;
-            
-            await executeSingleTrade(symbol, tradeParams, contractDescription, detectedDigit, clusterSize);
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
+          // DIGITDIFF strategy: Next digit will be different from the detected digit
+          tradeParams = {
+            contract_type: 'DIGITDIFF',
+            barrier: detectedDigit.toString()
+          };
+          contractDescription = `DIGITDIFF from ${detectedDigit}`;
+          await executeSingleTrade(symbol, tradeParams, contractDescription, detectedDigit, clusterSize);
           break;
 
         case 'DIGITOVER':
