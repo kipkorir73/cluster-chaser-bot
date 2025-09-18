@@ -95,16 +95,13 @@ export function VolatilityMonitor() {
   const [reconnectDelay, setReconnectDelay] = useState(1000);
   const [autoTradeSettings, setAutoTradeSettings] = useState({
     enabled: true,
+    contractType: 'DIGITDIFF' as 'DIGITDIFF' | 'DIGITOVER' | 'DIGITUNDER' | 'DIGITEVEN' | 'DIGITODD',
     tradeAmount: 1,
     tradeDuration: 1,
     minClusterSize: 5
   });
 
   const [soundSettings, setSoundSettings] = useState({
-    enabled: true
-  });
-
-  const [paperSettings, setPaperSettings] = useState({
     enabled: true
   });
 
@@ -174,8 +171,7 @@ export function VolatilityMonitor() {
     },
     onAlert: addAlert,
     volatilityIndices,
-    autoTradeSettings,
-    paperSettings
+    autoTradeSettings
   });
 
   const resetStatistics = useCallback(() => {
@@ -219,7 +215,7 @@ export function VolatilityMonitor() {
           // Execute trades if auto-trade is enabled and authenticated
           if (connectionSettings.autoTrade && autoTradeSettings.enabled && isAuthenticated) {
             try {
-              const success = await enhancedTradeManager.executeDigitDiffersTradeForAllDigits(
+              const success = await enhancedTradeManager.executeAutoTradeOnClusterDetection(
                 symbol,
                 digit,
                 tracking.currentClusters
@@ -570,30 +566,29 @@ export function VolatilityMonitor() {
                     }}
                     className="rounded"
                   />
-                  <span className="text-sm">
-                    {paperSettings.enabled ? 'Paper Trading' : 'Live Trading'}
-                  </span>
+                  <span className="text-sm">Live Trading</span>
                 </div>
               </div>
-            </div>
-
-            <div className="mt-4 flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={paperSettings.enabled}
-                  onChange={(e) => setPaperSettings(prev => ({ ...prev, enabled: e.target.checked }))}
-                  className="rounded"
-                />
-                <span className="text-sm font-medium">Paper Trading Mode</span>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Contract Type</label>
+                <select
+                  value={autoTradeSettings.contractType}
+                  onChange={(e) => setAutoTradeSettings(prev => ({ ...prev, contractType: e.target.value as any }))}
+                  className="w-full px-3 py-2 bg-background/50 border border-border rounded-md"
+                >
+                  <option value="DIGITDIFF">Digit Differs</option>
+                  <option value="DIGITOVER">Digit Over</option>
+                  <option value="DIGITUNDER">Digit Under</option>
+                  <option value="DIGITEVEN">Digit Even</option>
+                  <option value="DIGITODD">Digit Odd</option>
+                </select>
               </div>
             </div>
 
-            <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-md">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+            <div className="mt-4 p-4 bg-info/10 border border-info/20 rounded-md">
+              <p className="text-sm text-info-foreground">
                 <strong>Strategy:</strong> When a cluster of {autoTradeSettings.minClusterSize}+ identical digits is detected, 
-                the system will place DIGIT DIFFERS trades targeting all other digits (0-9 except the clustered digit).
-                {paperSettings.enabled && <span className="block mt-1"><strong>Paper Trading Mode:</strong> Trades are simulated only.</span>}
+                the system will auto-trade using {autoTradeSettings.contractType} contracts on all supported volatility indices.
               </p>
             </div>
           </Card>

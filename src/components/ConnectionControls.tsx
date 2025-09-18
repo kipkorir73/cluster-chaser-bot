@@ -19,6 +19,7 @@ interface ConnectionSettings {
 
 interface AutoTradeSettings {
   enabled: boolean;
+  contractType: 'DIGITDIFF' | 'DIGITOVER' | 'DIGITUNDER' | 'DIGITEVEN' | 'DIGITODD';
   tradeAmount: number;
   tradeDuration: number;
   minClusterSize: number;
@@ -323,6 +324,26 @@ export function ConnectionControls({
               </Select>
             </div>
 
+            {/* Contract Type Selection */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Contract Type</Label>
+              <Select
+                value={autoTradeSettings.contractType}
+                onValueChange={(value) => onAutoTradeSettingsChange({ contractType: value as any })}
+              >
+                <SelectTrigger className="bg-background/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DIGITDIFF">Digit Differs</SelectItem>
+                  <SelectItem value="DIGITOVER">Digit Over</SelectItem>
+                  <SelectItem value="DIGITUNDER">Digit Under</SelectItem>
+                  <SelectItem value="DIGITEVEN">Digit Even</SelectItem>
+                  <SelectItem value="DIGITODD">Digit Odd</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Minimum Cluster Size */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Min Cluster Size</Label>
@@ -346,13 +367,17 @@ export function ConnectionControls({
 
           {/* Strategy Description */}
           <div className="p-4 bg-muted/30 rounded-lg border border-border/30">
-            <h4 className="text-sm font-medium mb-2">Strategy: Digit Differs After Cluster</h4>
+            <h4 className="text-sm font-medium mb-2">Auto-Trading Strategy</h4>
             <p className="text-xs text-muted-foreground">
-              When a digit reaches the minimum cluster size ({autoTradeSettings.minClusterSize} consecutive occurrences), 
-              the system waits for that same digit to appear again as a single occurrence. When detected, 
-              it automatically places "Digit Differs" trades on all volatility indices, betting that the next tick 
-              will be different from the target digit.
+              When a digit reaches {autoTradeSettings.minClusterSize}+ consecutive occurrences (cluster), 
+              the system automatically executes <strong>{autoTradeSettings.contractType}</strong> trades 
+              across all supported volatility indices. Live trading only - no paper trading.
             </p>
+            <div className="mt-2 text-xs text-info">
+              <strong>Contract:</strong> {autoTradeSettings.contractType} | 
+              <strong> Stake:</strong> {autoTradeSettings.tradeAmount} | 
+              <strong> Duration:</strong> {autoTradeSettings.tradeDuration} tick(s)
+            </div>
           </div>
         </div>
       </div>
