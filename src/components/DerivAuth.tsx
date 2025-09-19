@@ -15,6 +15,7 @@ interface DerivAccount {
   balance: number;
   account_type: string;
   country: string;
+  token?: string;
 }
 
 interface AuthSettings {
@@ -212,10 +213,43 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
       const parse = (s: string) => new URLSearchParams(s.startsWith('#') || s.startsWith('?') ? s.slice(1) : s);
       const qs = parse(window.location.search);
       const hs = parse(window.location.hash);
-      const token = qs.get('token1') || qs.get('token') || qs.get('access_token') || hs.get('token1') || hs.get('token') || hs.get('access_token');
-      if (token && !isAuthenticated) {
-        // Authenticate using the returned token
-        void authenticateWithDeriv(token);
+      // Parse multiple account tokens if present (acct1, token1, acct2, token2, ...)
+      const collected: { loginid: string; token: string }[] = [];
+      let index = 1;
+      while (true) {
+        const acctKey = `acct${index}`;
+        const tokenKey = `token${index}`;
+        const acct = qs.get(acctKey) || hs.get(acctKey);
+        const tok = qs.get(tokenKey) || hs.get(tokenKey);
+        if (!acct || !tok) break;
+        collected.push({ loginid: acct, token: tok });
+        index++;
+      }
+
+      // Fallback single token
+      const singleToken = qs.get('token1') || qs.get('token') || qs.get('access_token') || hs.get('token1') || hs.get('token') || hs.get('access_token');
+
+      if (!isAuthenticated && (collected.length > 0 || singleToken)) {
+        if (collected.length > 0) {
+          // Populate accounts from collected list
+          const parsedAccounts: DerivAccount[] = collected.map(({ loginid, token }) => ({
+            loginid,
+            currency: 'USD',
+            is_demo: loginid.startsWith('VRT'),
+            balance: 0,
+            account_type: loginid.startsWith('VRT') ? 'demo' : 'real',
+            country: 'unknown',
+            token
+          }));
+          setAccounts(parsedAccounts);
+          const preferred = parsedAccounts.find(a => !a.is_demo) || parsedAccounts[0];
+          setSelectedAccount(preferred);
+          setAuthSettings(prev => ({ ...prev, apiToken: preferred.token || '' }));
+          void authenticateWithDeriv(preferred.token);
+        } else if (singleToken) {
+          setAuthSettings(prev => ({ ...prev, apiToken: singleToken }));
+          void authenticateWithDeriv(singleToken);
+        }
         // Clean URL
         window.history.replaceState({}, document.title, window.location.pathname);
       }
@@ -229,13 +263,15 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
     if (!account) return;
 
     setSelectedAccount(account);
-    onAuthChange(true, authSettings.apiToken, account);
+    const tokenToUse = account.token || authSettings.apiToken;
+    setAuthSettings(prev => ({ ...prev, apiToken: tokenToUse }));
+    onAuthChange(true, tokenToUse, account);
 
     // Switch account via WebSocket authorize call using the same token; Deriv will set active loginid
     try {
       const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=' + authSettings.appId);
       ws.onopen = () => {
-        ws.send(JSON.stringify({ authorize: authSettings.apiToken }));
+        ws.send(JSON.stringify({ authorize: tokenToUse }));
       };
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);

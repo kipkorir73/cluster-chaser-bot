@@ -677,6 +677,13 @@ export function VolatilityMonitor() {
           <Card className="p-6 bg-card/50 backdrop-blur-sm border-border/50">
             <div className="flex items-center gap-4 mb-4">
               <h2 className="text-lg font-semibold">Trading Controls</h2>
+              <div className="ml-auto flex items-center gap-3 text-sm">
+                <span className="text-muted-foreground">Account:</span>
+                <span className="font-mono font-semibold">{selectedAccount?.loginid || '—'}</span>
+                <span className="px-2 py-1 rounded bg-background/40 border text-xs">
+                  {selectedAccount?.is_demo ? 'Demo' : selectedAccount ? 'Real' : ''}
+                </span>
+              </div>
               <div className="flex gap-2 ml-auto">
                 <Button
                   onClick={connect}
