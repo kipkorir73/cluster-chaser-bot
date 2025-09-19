@@ -134,7 +134,7 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
             variant: "default"
           });
 
-          onAuthChange(true, authSettings.apiToken, accountInfo);
+          onAuthChange(true, tokenToUse, accountInfo);
           ws.close();
         }
 
