@@ -82,28 +82,28 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
           }
 
           // Request login list and balance
-          ws.send(JSON.stringify({ login_list: 1 }));
+          // Populate accounts from authorize response if available
+          try {
+            const auth = data.authorize || {};
+            if (Array.isArray(auth.account_list)) {
+              const parsed: DerivAccount[] = auth.account_list.map((itm: any) => ({
+                loginid: String(itm.loginid),
+                currency: typeof itm.currency === 'string' ? itm.currency : 'USD',
+                is_demo: String(itm.loginid).startsWith('VRT'),
+                balance: 0,
+                account_type: String(itm.loginid).startsWith('VRT') ? 'demo' : 'real',
+                country: 'unknown'
+              }));
+              setAccounts(parsed);
+              if (!selectedAccount && parsed.length > 0) {
+                setSelectedAccount(parsed.find(a => !a.is_demo) || parsed[0]);
+              }
+            }
+          } catch {}
           ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
         }
 
-        // Populate accounts from login_list
-        if (data.msg_type === 'login_list' && Array.isArray(data.login_list)) {
-          try {
-            const list = data.login_list as Array<any>;
-            const parsed: DerivAccount[] = list.map((itm) => ({
-              loginid: String(itm.loginid),
-              currency: typeof itm.currency === 'string' ? itm.currency : 'USD',
-              is_demo: String(itm.loginid).startsWith('VRT'),
-              balance: 0,
-              account_type: String(itm.loginid).startsWith('VRT') ? 'demo' : 'real',
-              country: 'unknown'
-            }));
-            setAccounts(parsed);
-            if (!selectedAccount && parsed.length > 0) {
-              setSelectedAccount(parsed[0]);
-            }
-          } catch {}
-        }
+        // Remove unsupported login_list handling to avoid "Unrecognized request"
 
         if (data.msg_type === 'balance') {
           // Parse account information
