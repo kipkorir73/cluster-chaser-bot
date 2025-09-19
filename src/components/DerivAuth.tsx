@@ -31,9 +31,9 @@ interface DerivAuthProps {
 export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
   const { toast } = useToast();
   const [authSettings, setAuthSettings] = useState<AuthSettings>({
-    appId: ((import.meta as any)?.env?.VITE_DERIV_APP_ID as string) || '1089',
+    appId: ((import.meta as any)?.env?.VITE_DERIV_APP_ID as string) || '101679',
     apiToken: '',
-    scopes: ((import.meta as any)?.env?.VITE_DERIV_SCOPES as string) || 'read,trade,payments'
+    scopes: ((import.meta as any)?.env?.VITE_DERIV_SCOPES as string) || 'read,trade'
   });
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
