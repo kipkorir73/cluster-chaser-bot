@@ -80,22 +80,28 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
             return;
           }
 
-          // Get account list
-          ws.send(JSON.stringify({
-            get_account_status: 1
-          }));
-          
-          ws.send(JSON.stringify({
-            balance: 1,
-            subscribe: 1
-          }));
+          // Request login list and balance
+          ws.send(JSON.stringify({ login_list: 1 }));
+          ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
         }
 
-        if (data.msg_type === 'get_account_status') {
-          // Request all accounts
-          ws.send(JSON.stringify({
-            landing_company_details: "svg"
-          }));
+        // Populate accounts from login_list
+        if (data.msg_type === 'login_list' && Array.isArray(data.login_list)) {
+          try {
+            const list = data.login_list as Array<any>;
+            const parsed: DerivAccount[] = list.map((itm) => ({
+              loginid: String(itm.loginid),
+              currency: typeof itm.currency === 'string' ? itm.currency : 'USD',
+              is_demo: String(itm.loginid).startsWith('VRT'),
+              balance: 0,
+              account_type: String(itm.loginid).startsWith('VRT') ? 'demo' : 'real',
+              country: 'unknown'
+            }));
+            setAccounts(parsed);
+            if (!selectedAccount && parsed.length > 0) {
+              setSelectedAccount(parsed[0]);
+            }
+          } catch {}
         }
 
         if (data.msg_type === 'balance') {
@@ -109,8 +115,15 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
             country: 'unknown'
           };
 
-          setAccounts([accountInfo]);
-          setSelectedAccount(accountInfo);
+          setAccounts((prev) => {
+            const existing = prev.find(a => a.loginid === accountInfo.loginid);
+            if (existing) {
+              // Update balance and currency
+              return prev.map(a => a.loginid === accountInfo.loginid ? { ...a, balance: accountInfo.balance, currency: accountInfo.currency } : a);
+            }
+            return [accountInfo, ...prev];
+          });
+          setSelectedAccount((prev) => prev && prev.loginid !== accountInfo.loginid ? prev : accountInfo);
           setIsAuthenticated(true);
           setIsLoading(false);
           
@@ -213,16 +226,30 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
 
   const handleAccountChange = (loginid: string) => {
     const account = accounts.find(acc => acc.loginid === loginid);
-    if (account) {
-      setSelectedAccount(account);
-      onAuthChange(true, authSettings.apiToken, account);
-      
-      toast({
-        title: "Account Switched",
-        description: `Switched to ${account.is_demo ? 'Demo' : 'Real'} account: ${account.loginid}`,
-        variant: "default"
-      });
-    }
+    if (!account) return;
+
+    setSelectedAccount(account);
+    onAuthChange(true, authSettings.apiToken, account);
+
+    // Switch account via WebSocket authorize call using the same token; Deriv will set active loginid
+    try {
+      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=' + authSettings.appId);
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ authorize: authSettings.apiToken }));
+      };
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.msg_type === 'authorize' && data.authorize && data.authorize.loginid === account.loginid) {
+          toast({
+            title: "Account Switched",
+            description: `Active account: ${account.loginid}`,
+            variant: "default"
+          });
+          ws.close();
+        }
+      };
+      ws.onerror = () => ws.close();
+    } catch {}
   };
 
   return (
