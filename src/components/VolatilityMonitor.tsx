@@ -72,7 +72,7 @@ export function VolatilityMonitor() {
   
   const [connectionSettings, setConnectionSettings] = useState<ConnectionSettings>({
     alertThreshold: 5,
-    autoTrade: false,
+    autoTrade: true,
     selectedVolatility: 'R_25'
   });
   
