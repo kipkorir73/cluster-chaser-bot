@@ -309,7 +309,9 @@ export function VolatilityMonitor() {
   const processTick = useCallback(async (tick: any) => {
     const symbol = tick.symbol;
     const quote = parseFloat(tick.quote);
-    const lastDigit = Math.floor((quote * 100) % 10);
+    const quoteStr = String(quote);
+    const sanitized = quoteStr.replace(/[^0-9]/g, '');
+    const lastDigit = sanitized.length > 0 ? parseInt(sanitized[sanitized.length - 1]) : 0;
 
     // Update volatility data
     setVolatilityData(prevData => {
@@ -329,7 +331,7 @@ export function VolatilityMonitor() {
         lastTick: null
       };
 
-      const newDigits = [...symbolData.digits, lastDigit].slice(-50);
+      const newDigits = [...symbolData.digits, lastDigit].slice(-200);
       const clusterVisualization = newDigits.slice(-20).map((digit, index, arr) => {
         let clusterSize = 1;
         // Count backwards to find cluster size
@@ -362,8 +364,89 @@ export function VolatilityMonitor() {
       };
     });
 
-    // Analyze patterns
-    await analyzePatterns({ symbol, quote, epoch: tick.epoch || Date.now() / 1000 });
+    // Stream-based cluster tracking and trade triggering
+    const currentData = volatilityDataRef.current[symbol];
+    if (!currentData) return;
+
+    // Update per-digit tracking based on latest digit
+    const latestIndex = currentData.digits.length - 1;
+    for (let d = 0; d < 10; d++) {
+      const tracking = currentData.patternTracking[d];
+      if (!tracking) continue;
+
+      // Initialize extras if missing
+      // @ts-ignore
+      tracking.runLength = tracking.runLength || 0;
+      // @ts-ignore
+      tracking.inCluster = tracking.inCluster || false;
+      tracking.isActive = tracking.currentClusters > 0;
+
+      if (d === lastDigit) {
+        // @ts-ignore
+        tracking.runLength = (tracking.runLength as number) + 1;
+        // When run length reaches 2 and we are not currently in a cluster, a new cluster is formed
+        // Count clusters when they FORM (length >= 2)
+        // @ts-ignore
+        if (!tracking.inCluster && tracking.runLength >= 2) {
+          tracking.currentClusters = (tracking.currentClusters || 0) + 1;
+          // @ts-ignore
+          tracking.inCluster = true;
+          tracking.lastClusterEnd = latestIndex;
+          tracking.isActive = true;
+          if (tracking.currentClusters >= autoTradeSettings.minClusterSize) {
+            tracking.expectedNextCluster = true; // armed for next appearance trade
+          }
+          // After a cluster forms, allow future next-appearance trade again
+          tracking.waitingForSingle = false;
+        }
+      } else {
+        // Different digit resets run length for this digit
+        // @ts-ignore
+        const wasInCluster = !!tracking.inCluster;
+        // @ts-ignore
+        tracking.runLength = 0;
+        if (wasInCluster) {
+          // Cluster ended
+          // @ts-ignore
+          tracking.inCluster = false;
+          tracking.lastClusterEnd = latestIndex;
+        }
+      }
+
+      // TRADE: if threshold reached, trade on the very next appearance of this digit (runLength === 1)
+      if (
+        connectionSettings.autoTrade && autoTradeSettings.enabled && isAuthenticated && isConnected && socketRef.current && selectedAccount &&
+        tracking.expectedNextCluster && !tracking.waitingForSingle && d === lastDigit
+      ) {
+        // @ts-ignore
+        if ((tracking.runLength as number) === 1) {
+          try {
+            const success = await enhancedTradeManager.executeAutoTradeOnClusterDetection(
+              symbol,
+              d,
+              tracking.currentClusters
+            );
+            if (success) {
+              addAlert({
+                id: `trade_${Date.now()}`,
+                message: `🚀 AUTO TRADE: ${symbol} - After ${tracking.currentClusters} clusters of digit ${d}, next ${d} appeared. DIGITDIFF placed!`,
+                timestamp: new Date(),
+                type: 'success'
+              });
+              // Prevent duplicate trades until a new cluster forms
+              tracking.waitingForSingle = true;
+            }
+          } catch (error) {
+            addAlert({
+              id: `error_${Date.now()}`,
+              message: `❌ Trade failed for ${symbol}: ${error}`,
+              timestamp: new Date(),
+              type: 'error'
+            });
+          }
+        }
+      }
+    }
   }, [analyzePatterns]);
 
   const connect = useCallback(async () => {
