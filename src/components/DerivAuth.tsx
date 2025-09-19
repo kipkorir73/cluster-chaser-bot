@@ -39,8 +39,9 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
   const [selectedAccount, setSelectedAccount] = useState<DerivAccount | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const authenticateWithDeriv = async () => {
-    if (!authSettings.apiToken) {
+  const authenticateWithDeriv = async (incomingToken?: string) => {
+    const tokenToUse = incomingToken || authSettings.apiToken;
+    if (!tokenToUse) {
       toast({
         title: "Missing API Token",
         description: "Please enter your Deriv API token",
@@ -58,7 +59,7 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
       ws.onopen = () => {
         // Send authorization request
         ws.send(JSON.stringify({
-          authorize: authSettings.apiToken
+          authorize: tokenToUse
         }));
       };
 
@@ -165,6 +166,31 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
     });
   };
 
+  // OAuth login: redirect to Deriv OAuth with appId and current URL as redirect_uri
+  const handleOAuthLogin = () => {
+    const redirectUri = `${window.location.origin}${window.location.pathname}`;
+    const url = `https://oauth.deriv.com/oauth2/authorize?app_id=${encodeURIComponent(authSettings.appId)}&scope=read,trade&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    window.location.href = url;
+  };
+
+  // On mount, parse token returned from OAuth (query or hash) and auto-authenticate
+  useEffect(() => {
+    try {
+      const parse = (s: string) => new URLSearchParams(s.startsWith('#') || s.startsWith('?') ? s.slice(1) : s);
+      const qs = parse(window.location.search);
+      const hs = parse(window.location.hash);
+      const token = qs.get('token1') || qs.get('token') || qs.get('access_token') || hs.get('token1') || hs.get('token') || hs.get('access_token');
+      if (token && !isAuthenticated) {
+        // Authenticate using the returned token
+        void authenticateWithDeriv(token);
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch {
+      // ignore
+    }
+  }, [isAuthenticated]);
+
   const handleAccountChange = (loginid: string) => {
     const account = accounts.find(acc => acc.loginid === loginid);
     if (account) {
@@ -248,6 +274,15 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
                   Login to Deriv
                 </>
               )}
+            </Button>
+            <Button
+              onClick={handleOAuthLogin}
+              variant="outline"
+              disabled={isLoading || isConnected}
+              className="w-full"
+            >
+              <LogIn className="h-4 w-4 mr-2" />
+              Login with Deriv (OAuth)
             </Button>
             
             <p className="text-xs text-muted-foreground text-center">
