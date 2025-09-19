@@ -31,9 +31,9 @@ interface DerivAuthProps {
 export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
   const { toast } = useToast();
   const [authSettings, setAuthSettings] = useState<AuthSettings>({
-    appId: '1089',
+    appId: ((import.meta as any)?.env?.VITE_DERIV_APP_ID as string) || '1089',
     apiToken: '',
-    scopes: 'read,trade'
+    scopes: ((import.meta as any)?.env?.VITE_DERIV_SCOPES as string) || 'read,trade,payments'
   });
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -171,7 +171,25 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
   // OAuth login: redirect to Deriv OAuth with appId and current URL as redirect_uri
   const handleOAuthLogin = () => {
     const redirectUri = `${window.location.origin}${window.location.pathname}`;
-    const url = `https://oauth.deriv.com/oauth2/authorize?app_id=${encodeURIComponent(authSettings.appId)}&scope=${encodeURIComponent(authSettings.scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    const appIdTrimmed = String(authSettings.appId).trim();
+    if (!/^[0-9]+$/.test(appIdTrimmed)) {
+      toast({
+        title: "Missing app_id",
+        description: "Enter a valid numeric Deriv app_id or set VITE_DERIV_APP_ID.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const state = Math.random().toString(36).slice(2);
+    const params = new URLSearchParams({
+      app_id: appIdTrimmed,
+      scope: authSettings.scopes,
+      redirect_uri: redirectUri,
+      response_type: 'token',
+      state
+    });
+    const url = `https://oauth.deriv.com/oauth2/authorize?${params.toString()}`;
     window.location.href = url;
   };
 
