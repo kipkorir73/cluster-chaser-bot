@@ -149,7 +149,7 @@ export function EnhancedTradeManager({
       basis: 'stake',
       currency: selectedAccount!.currency,
       duration: autoTradeSettings.tradeDuration,
-      duration_unit: 'tick',
+      duration_unit: 't',
       symbol: symbol,
       ...tradeParams
     };
@@ -157,7 +157,7 @@ export function EnhancedTradeManager({
     // Send proposal request
     wsRef.current!.send(JSON.stringify(proposalRequest));
 
-    // Execute buy request after proposal
+    // Execute buy request after a short delay to allow proposal processing
     setTimeout(() => {
       if (wsRef.current) {
         const buyRequest = {
@@ -166,9 +166,10 @@ export function EnhancedTradeManager({
           parameters: {
             symbol: symbol,
             duration: autoTradeSettings.tradeDuration,
-            duration_unit: 'tick',
+            duration_unit: 't',
             amount: autoTradeSettings.tradeAmount,
             basis: 'stake',
+            currency: selectedAccount!.currency,
             ...tradeParams
           }
         };
@@ -239,9 +240,10 @@ export function EnhancedTradeManager({
         parameters: {
           symbol: symbol,
           duration: autoTradeSettings.tradeDuration,
-          duration_unit: 'tick',
+          duration_unit: 't',
           amount: tradeStake,
           basis: 'stake',
+          currency: selectedAccount.currency,
           ...tradeParams
         }
       };
