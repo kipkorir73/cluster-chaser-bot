@@ -20,6 +20,7 @@ interface DerivAccount {
 interface AuthSettings {
   appId: string;
   apiToken: string;
+  scopes: string;
 }
 
 interface DerivAuthProps {
@@ -31,7 +32,8 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
   const { toast } = useToast();
   const [authSettings, setAuthSettings] = useState<AuthSettings>({
     appId: '1089',
-    apiToken: ''
+    apiToken: '',
+    scopes: 'read,trade'
   });
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -169,7 +171,7 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
   // OAuth login: redirect to Deriv OAuth with appId and current URL as redirect_uri
   const handleOAuthLogin = () => {
     const redirectUri = `${window.location.origin}${window.location.pathname}`;
-    const url = `https://oauth.deriv.com/oauth2/authorize?app_id=${encodeURIComponent(authSettings.appId)}&scope=read,trade&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    const url = `https://oauth.deriv.com/oauth2/authorize?app_id=${encodeURIComponent(authSettings.appId)}&scope=${encodeURIComponent(authSettings.scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
     window.location.href = url;
   };
 
@@ -254,6 +256,22 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
                 onChange={(e) => setAuthSettings(prev => ({ ...prev, apiToken: e.target.value }))}
                 className="bg-background/50"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="oauthScopes" className="text-sm font-medium">
+                OAuth Scopes
+              </Label>
+              <Input
+                id="oauthScopes"
+                type="text"
+                placeholder="read,trade,payments"
+                value={authSettings.scopes}
+                onChange={(e) => setAuthSettings(prev => ({ ...prev, scopes: e.target.value }))}
+                className="bg-background/50"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Your app_id must permit the scopes requested. Use the maximum you need.
+              </p>
             </div>
           </div>
 
