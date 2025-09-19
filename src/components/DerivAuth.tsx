@@ -46,8 +46,8 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
     const tokenToUse = incomingToken || authSettings.apiToken;
     if (!tokenToUse) {
       toast({
-        title: "Missing API Token",
-        description: "Please enter your Deriv API token",
+        title: "Not Authenticated",
+        description: "Please login via Deriv to continue",
         variant: "destructive"
       });
       return;
@@ -310,90 +310,26 @@ export function DerivAuth({ onAuthChange, isConnected }: DerivAuthProps) {
 
       {!isAuthenticated ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="appId" className="text-sm font-medium">
-                App ID
-              </Label>
-              <Input
-                id="appId"
-                type="text"
-                placeholder="1089"
-                value={authSettings.appId}
-                onChange={(e) => setAuthSettings(prev => ({ ...prev, appId: e.target.value }))}
-                className="bg-background/50"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="apiToken" className="text-sm font-medium">
-                API Token
-              </Label>
-              <Input
-                id="apiToken"
-                type="password"
-                placeholder="Enter your Deriv API token"
-                value={authSettings.apiToken}
-                onChange={(e) => setAuthSettings(prev => ({ ...prev, apiToken: e.target.value }))}
-                className="bg-background/50"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="oauthScopes" className="text-sm font-medium">
-                OAuth Scopes
-              </Label>
-              <Input
-                id="oauthScopes"
-                type="text"
-                placeholder="read,trade,payments"
-                value={authSettings.scopes}
-                onChange={(e) => setAuthSettings(prev => ({ ...prev, scopes: e.target.value }))}
-                className="bg-background/50"
-              />
-              <p className="text-[10px] text-muted-foreground">
-                Your app_id must permit the scopes requested. Use the maximum you need.
-              </p>
-            </div>
-          </div>
-
           <div className="flex flex-col gap-2">
-            <Button 
-              onClick={authenticateWithDeriv}
-              disabled={isLoading || !authSettings.apiToken || isConnected}
+            <Button
+              onClick={handleOAuthLogin}
+              disabled={isLoading || isConnected}
               className="w-full"
             >
               {isLoading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Authenticating...
+                  Redirecting to Deriv...
                 </>
               ) : (
                 <>
                   <LogIn className="h-4 w-4 mr-2" />
-                  Login to Deriv
+                  Login with Deriv
                 </>
               )}
             </Button>
-            <Button
-              onClick={handleOAuthLogin}
-              variant="outline"
-              disabled={isLoading || isConnected}
-              className="w-full"
-            >
-              <LogIn className="h-4 w-4 mr-2" />
-              Login with Deriv (OAuth)
-            </Button>
-            
             <p className="text-xs text-muted-foreground text-center">
-              Get your API token from{' '}
-              <a 
-                href="https://app.deriv.com/account/api-token" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                Deriv API Token page
-              </a>
+              You will be redirected to Deriv to authorize this app.
             </p>
           </div>
         </div>
